@@ -1,0 +1,14 @@
+# Maven
+target/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.DS_Store
+
+# Secrets — never commit API keys
+.env
+*.env
+application-local.properties
