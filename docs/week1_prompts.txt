@@ -1,0 +1,149 @@
+I am teaching beginner students GenAI with Java.
+
+Create a Spring Boot 3 + Java 21 + Maven project named ai-chat-bot.
+
+Goal:
+Build a beginner-friendly OpenAI Responses API streaming chat endpoint.
+
+Rules:
+1. Use official OpenAI Java SDK: com.openai:openai-java.
+2. Use Responses API, not Chat Completions.
+3. Use Spring WebFlux for streaming.
+4. Add mock-mode so the app can run without OpenAI API key.
+5. Add CostGuard to limit input size.
+6. Add local cache for repeated questions.
+7. Keep code simple for beginner students.
+8. Use Controller → Service structure.
+9. Do not add tool calling or structured output yet.
+
+Give me file-by-file code.
+
+**************************************************
+
+Add DTOs and conversation model
+Add required DTOs and model classes only.
+Create:
+* ChatRequest
+* ConversationChatRequest
+* ChatResponse
+* ConversationHistoryResponse
+* ConversationMessage
+Use Java records. Keep package structure clean. Do not change services yet. Show files changed.
+
+
+**************************************************
+
+Add ConversationStore
+Add conversation memory storage.
+Create:
+* ConversationStore interface
+* InMemoryConversationStore implementation
+Use ConcurrentHashMap. Store messages by conversationId. Keep only last 10 messages. Add beginner-friendly comments explaining conversationId, memory, and session isolation.
+Do not add Redis now. Show files changed.
+
+
+***************************************************
+
+
+Add ConversationChatService
+
+Create ConversationChatService for stateful chat.
+
+Flow:
+1. Validate question using CostGuard
+2. Save user message
+3. Load full history
+4. Send full history to OpenAI Responses API
+5. Stream answer using Flux<String>
+6. Save assistant reply after stream completes
+
+Important:
+- Use OpenAI Responses API, not Chat Completions.
+- Pass system prompt separately using instructions.
+- Do not store system prompt in history.
+- Keep code beginner-friendly.
+
+Show files changed.
+
+
+***************************************************
+
+
+Update controllers and APIs
+
+Add APIs matching Session 4 PPT:
+
+Stateless:
+GET /api/chat/stream?question=
+POST /api/chat/stateless
+
+Stateful:
+GET /api/chat/conversation/stream?conversationId=&question=
+POST /api/chat/conversation
+GET /api/chat/conversation/history?conversationId=
+DELETE /api/chat/conversation?conversationId=
+
+Demo:
+GET /api/demo/stateless?question=
+GET /api/demo/stateful?conversationId=&question=
+
+Keep old /chat endpoint only if needed, but final README should use new APIs.
+Show files changed.
+
+
+***************************************************
+
+
+
+Improve mock mode
+
+Improve mock mode for classroom demo.
+
+Mock mode should:
+1. Work without OPENAI_API_KEY
+2. Stream fake chunks
+3. Log clearly that mock mode is active
+4. Support this stateful memory test:
+
+Turn 1:
+My name is Ankur
+
+Turn 2:
+What is my name?
+
+Expected answer:
+Your name is Ankur.
+
+Keep implementation simple.
+Use conversation history only for this basic test.
+Show files changed.
+
+
+***************************************************
+Add README and test.http
+
+Add README.md and test.http matching Session 4 PPT.
+
+README must include:
+1. Project overview
+2. Stateless vs stateful chat
+3. How conversationId works
+4. Mock mode vs real mode
+5. How to run
+6. Final API list
+7. Curl commands for PPT demo
+8. Redis upgrade note
+9. Travel Planner exercise
+
+test.http must include:
+- stateless forgets demo
+- stateful remembers demo
+- history API
+- clear API
+- test after clear
+
+Show files changed.
+
+
+***************************************************
+
