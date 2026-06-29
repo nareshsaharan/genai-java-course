@@ -3,6 +3,7 @@ package com.example.aichatbot.service;
 import com.openai.client.OpenAIClient;
 import com.openai.models.images.ImageGenerateParams;
 import com.openai.models.images.ImagesResponse;
+import com.openai.models.images.ImageGenerateParams.Quality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,9 @@ public class ImageService {
     // Maximum characters allowed in a prompt (keeps costs predictable).
     private static final int MAX_PROMPT_CHARS = 500;
 
+    // Default quality used when the caller doesn't specify one.
+    private static final String DEFAULT_QUALITY = "medium";
+
     @Value("${app.mock-mode:true}")
     private boolean mockMode;
 
@@ -51,24 +55,29 @@ public class ImageService {
     }
 
     /**
-     * Generate an image from the given prompt.
+     * Generate an image from the given prompt and quality setting.
      *
-     * @param prompt text description of the image to generate
+     * @param prompt  text description of the image to generate
+     * @param quality desired quality level (low / medium / high / hd / standard / auto)
+     *                pass null or blank to use the default ("medium")
      * @return a URL string pointing to the generated image
      */
-    public String generateImage(String prompt) {
+    public String generateImage(String prompt, String quality) {
 
         // Step 1 – validate the prompt before doing anything else
         validatePrompt(prompt);
 
-        // Step 2 – route to mock or real implementation
+        // Step 2 – fall back to default quality if none was provided
+        String resolvedQuality = (quality == null || quality.isBlank()) ? DEFAULT_QUALITY : quality.toLowerCase();
+
+        // Step 3 – route to mock or real implementation
         if (mockMode) {
-            log.info("[MOCK] Image generation skipped. Prompt: {}", prompt);
-            return generateMockUrl(prompt);
+            log.info("[MOCK] Image generation skipped. Prompt: {}, Quality: {}", prompt, resolvedQuality);
+            return generateMockUrl(prompt, resolvedQuality);
         }
 
-        log.info("[REAL] Generating image for prompt: {}", prompt);
-        return generateFromOpenAI(prompt);
+        log.info("[REAL] Generating image. Prompt: {}, Quality: {}", prompt, resolvedQuality);
+        return generateFromOpenAI(prompt, resolvedQuality);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -98,9 +107,9 @@ public class ImageService {
      *
      * We embed the prompt in the URL so the response feels meaningful.
      */
-    private String generateMockUrl(String prompt) {
+    private String generateMockUrl(String prompt, String quality) {
         // URL-encode spaces as + for a valid URL
-        String encoded = prompt.replace(" ", "+");
+        String encoded = (prompt + " [quality=" + quality + "]").replace(" ", "+");
         return "https://placehold.co/1024x1024?text=" + encoded + "&font=roboto";
     }
 
@@ -115,18 +124,26 @@ public class ImageService {
      * Why n(1)?
      * n controls how many images to generate. We always request exactly 1
      * to keep costs low and the response simple.
+     *
+     * Quality values (low → cheapest/fastest, hd → best detail):
+     *   low, medium, high, standard, hd, auto
      */
-    private String generateFromOpenAI(String prompt) {
+    private String generateFromOpenAI(String prompt, String quality) {
         OpenAIClient client = openAIClient.orElseThrow(() ->
             new IllegalStateException(
                 "OpenAI client not initialised. Check app.mock-mode and OPENAI_API_KEY.")
         );
 
+        // Convert the quality string to the SDK's Quality enum.
+        // Quality.of() accepts the string value directly (case-sensitive lowercase).
+        Quality sdkQuality = Quality.of(quality);
+
         // Build the request parameters
         ImageGenerateParams params = ImageGenerateParams.builder()
             .prompt(prompt)
             .model(IMAGE_MODEL)
-            .n(1L)         // generate exactly one image
+            .n(1L)              // generate exactly one image
+            .quality(sdkQuality)
             .build();
 
         // Call the API — returns an ImagesResponse containing a list of Image objects

@@ -43,7 +43,7 @@ public class ImageController {
     @PostMapping("/image")
     public ImageResponse generateImage(@RequestBody ImageRequest request) {
         // Delegate all logic to the service — controller stays thin
-        String imageUrl = imageService.generateImage(request.prompt());
+        String imageUrl = imageService.generateImage(request.prompt(), request.quality());
         return new ImageResponse(imageUrl, "Image generated successfully");
     }
 
