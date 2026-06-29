@@ -8,14 +8,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 
 /**
- * SpeechToTextService – converts an audio file into written text.
+ * SpeechToTextService – converts audio bytes into written text.
  *
  * What is speech-to-text (STT)?
  * The user records their voice (or provides an audio file).
@@ -25,29 +23,26 @@ import java.util.Set;
  *
  * Two modes:
  *   mock-mode = true  → returns fake text instantly (no API call, great for demos)
- *   mock-mode = false → sends the real audio file to OpenAI Whisper
+ *   mock-mode = false → sends the real audio bytes to OpenAI Whisper
  *
- * Supported formats: mp3, wav, m4a (the most common audio formats).
- * Max file size: 10 MB — large files are expensive and slow.
+ * Why does this service accept filename + byte[] instead of a file object?
+ * This app uses Spring WebFlux (reactive).  In WebFlux, uploaded files come
+ * in as FilePart objects — not the MultipartFile you'd use in a normal Spring MVC app.
+ * The controller handles the reactive file-reading; this service just gets the
+ * plain filename and bytes, keeping it simple and easy to understand.
  */
 @Service
 public class SpeechToTextService {
 
     private static final Logger log = LoggerFactory.getLogger(SpeechToTextService.class);
 
-    // Whisper is OpenAI's speech-to-text model.
     private static final String WHISPER_MODEL = "whisper-1";
-
-    // Maximum file size we accept: 10 MB in bytes.
-    private static final long MAX_FILE_BYTES = 10 * 1024 * 1024;
-
-    // Only allow these audio formats.
+    private static final long   MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("mp3", "wav", "m4a");
 
     @Value("${app.mock-mode:true}")
     private boolean mockMode;
 
-    // OpenAIClient is Optional because it only exists when mock-mode=false.
     private final Optional<OpenAIClient> openAIClient;
 
     public SpeechToTextService(@Autowired(required = false) OpenAIClient openAIClient) {
@@ -55,53 +50,42 @@ public class SpeechToTextService {
     }
 
     /**
-     * Transcribe the given audio file to text.
+     * Transcribe audio bytes to text.
      *
-     * @param file the audio file uploaded by the user (mp3, wav, or m4a)
+     * @param filename  original file name (e.g. "audio.mp3") — used for extension check
+     * @param audioBytes raw audio file contents
      * @return the transcribed text
      */
-    public String transcribe(MultipartFile file) throws IOException {
+    public String transcribe(String filename, byte[] audioBytes) {
 
-        // Step 1 – validate the file before touching the API
-        validateFile(file);
+        // Step 1 – validate before touching the API
+        validateFile(filename, audioBytes);
 
         // Step 2 – route to mock or real implementation
         if (mockMode) {
-            log.info("[MOCK] Transcription skipped. File: {}", file.getOriginalFilename());
+            log.info("[MOCK] Transcription skipped. File: {}", filename);
             return "Add Java class tomorrow";
         }
 
-        log.info("[REAL] Transcribing file: {} ({} bytes)", file.getOriginalFilename(), file.getSize());
-        return transcribeWithOpenAI(file);
+        log.info("[REAL] Transcribing: {} ({} bytes)", filename, audioBytes.length);
+        return transcribeWithOpenAI(audioBytes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
     // Private helpers
     // ──────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Validates that the file is usable before we send it to OpenAI.
-     * Throws IllegalArgumentException for bad input — the controller
-     * turns this into a 400 Bad Request response automatically.
-     */
-    private void validateFile(MultipartFile file) {
-        // Check the file was actually attached
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Audio file must not be empty.");
-        }
-
-        // Check file size
-        if (file.getSize() > MAX_FILE_BYTES) {
-            throw new IllegalArgumentException(
-                "File too large: %.1f MB (max 10 MB). Please use a shorter recording."
-                    .formatted(file.getSize() / (1024.0 * 1024.0))
-            );
-        }
-
-        // Check file extension — only allow known audio formats
-        String filename = file.getOriginalFilename();
+    private void validateFile(String filename, byte[] audioBytes) {
         if (filename == null || filename.isBlank()) {
             throw new IllegalArgumentException("File must have a name (e.g. audio.mp3).");
+        }
+        if (audioBytes == null || audioBytes.length == 0) {
+            throw new IllegalArgumentException("Audio file must not be empty.");
+        }
+        if (audioBytes.length > MAX_FILE_BYTES) {
+            throw new IllegalArgumentException(
+                "File too large: %.1f MB (max 10 MB).".formatted(audioBytes.length / (1024.0 * 1024.0))
+            );
         }
 
         String extension = filename.contains(".")
@@ -117,40 +101,26 @@ public class SpeechToTextService {
 
     /**
      * REAL MODE:
+     *   1. Build TranscriptionCreateParams with the raw audio bytes.
+     *   2. Call client.audio().transcriptions().create() — OpenAI listens and returns text.
+     *   3. Extract the text string from the response.
      *
-     * How this works:
-     *   1. Read the audio bytes from the uploaded file.
-     *   2. Build a TranscriptionCreateParams with the bytes + model name.
-     *   3. Call client.audio().transcriptions().create() — OpenAI listens and returns text.
-     *   4. Extract the transcribed text from the response.
-     *
-     * Why pass bytes instead of a file path?
-     * The file is uploaded to the server's memory (MultipartFile), not saved to disk.
-     * The OpenAI SDK accepts raw bytes directly, so we never need to write the file
-     * to disk ourselves.
+     * Why pass bytes directly?
+     * The OpenAI SDK accepts byte[] natively — no temp file needed.
      */
-    private String transcribeWithOpenAI(MultipartFile file) throws IOException {
+    private String transcribeWithOpenAI(byte[] audioBytes) {
         OpenAIClient client = openAIClient.orElseThrow(() ->
             new IllegalStateException(
                 "OpenAI client not initialised. Check app.mock-mode and OPENAI_API_KEY.")
         );
 
-        // Step 1 – read the audio file bytes from the multipart upload
-        byte[] audioBytes = file.getBytes();
-
-        // Step 2 – build the transcription request
         TranscriptionCreateParams params = TranscriptionCreateParams.builder()
-            .file(audioBytes)              // the raw audio bytes
-            .model(WHISPER_MODEL)          // whisper-1 is OpenAI's STT model
+            .file(audioBytes)
+            .model(WHISPER_MODEL)
             .build();
 
-        // Step 3 – send to OpenAI and wait for the text response
-        // This is a blocking call — OpenAI processes the audio and returns text.
         TranscriptionCreateResponse response = client.audio().transcriptions().create(params);
 
-        // Step 4 – extract the text
-        // The response can be a Transcription or a TranscriptionVerbose.
-        // asTranscription() gives us the simple version with just the text.
         return response.asTranscription().text();
     }
 }

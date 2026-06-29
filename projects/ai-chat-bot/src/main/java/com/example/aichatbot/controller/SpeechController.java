@@ -2,31 +2,36 @@ package com.example.aichatbot.controller;
 
 import com.example.aichatbot.dto.TranscriptionResponse;
 import com.example.aichatbot.service.SpeechToTextService;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * SpeechController – HTTP layer for speech-to-text transcription.
  *
- * Exposes one endpoint:
- *
+ * Endpoint:
  *   POST /api/multimodal/transcribe
  *   Content-Type: multipart/form-data
- *   Field name:   file
- *   Accepted:     mp3, wav, m4a (max 10 MB)
+ *   Field:        file  (mp3, wav, m4a — max 10 MB)
  *
- * What is multipart/form-data?
- * It's a way to upload files over HTTP.  Instead of sending JSON text,
- * the request contains the actual file bytes (like attaching a file to an email).
- * Spring's @RequestParam MultipartFile automatically reads the uploaded file for us.
+ * Why FilePart instead of MultipartFile?
+ * This app uses Spring WebFlux (the reactive web framework).  In WebFlux,
+ * uploaded files are represented as FilePart, not MultipartFile.
+ * MultipartFile belongs to Spring MVC (the classic, non-reactive version).
+ * They do the same thing — give us the uploaded file — just in different styles.
+ *
+ * How the reactive pipeline works:
+ *   1. filePart.content()          → Flux<DataBuffer>  (stream of byte chunks)
+ *   2. DataBufferUtils.join(...)   → Mono<DataBuffer>  (all chunks merged into one)
+ *   3. .map(...)                   → read bytes, call service, build response
+ *   4. .subscribeOn(boundedElastic)→ run the blocking OpenAI call on a thread pool
  *
  * Try it:
- *   curl -X POST http://localhost:8080/api/multimodal/transcribe \
- *        -F "file=@/path/to/audio.mp3"
+ *   curl -X POST http://localhost:8080/api/multimodal/transcribe -F "file=@audio.mp3"
  */
 @RestController
 @RequestMapping("/api/multimodal")
@@ -38,34 +43,31 @@ public class SpeechController {
         this.speechToTextService = speechToTextService;
     }
 
-    /**
-     * Transcribe an uploaded audio file to text.
-     *
-     * @RequestParam("file") MultipartFile
-     *   Spring automatically reads the "file" field from the multipart request
-     *   and gives us a MultipartFile object — no manual byte-reading needed.
-     *
-     * @return JSON with a "text" field containing the transcribed words
-     */
     @PostMapping(value = "/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public TranscriptionResponse transcribe(@RequestParam("file") MultipartFile file) throws IOException {
-        String transcribedText = speechToTextService.transcribe(file);
-        return new TranscriptionResponse(transcribedText);
+    public Mono<TranscriptionResponse> transcribe(@RequestPart("file") FilePart filePart) {
+
+        // Step 1 – join all incoming byte chunks into a single DataBuffer
+        return DataBufferUtils.join(filePart.content())
+            .map(dataBuffer -> {
+                // Step 2 – copy DataBuffer bytes into a plain byte array
+                byte[] bytes = new byte[dataBuffer.readableByteCount()];
+                dataBuffer.read(bytes);
+                DataBufferUtils.release(dataBuffer); // release memory back to the pool
+                return bytes;
+            })
+            // Step 3 – call the service (blocking) on a thread pool so we don't stall WebFlux
+            .publishOn(Schedulers.boundedElastic())
+            .map(bytes -> {
+                String text = speechToTextService.transcribe(filePart.filename(), bytes);
+                return new TranscriptionResponse(text);
+            });
     }
 
-    /**
-     * Bad file input: empty file, wrong format, too large.
-     * Returns 400 Bad Request with a readable error message.
-     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleValidation(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().body("Error: " + ex.getMessage());
     }
 
-    /**
-     * Catch-all: IO errors (disk full, stream closed) or OpenAI errors.
-     * Returns 500 Internal Server Error.
-     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleGeneric(Exception ex) {
         return ResponseEntity.internalServerError().body("Something went wrong: " + ex.getMessage());
