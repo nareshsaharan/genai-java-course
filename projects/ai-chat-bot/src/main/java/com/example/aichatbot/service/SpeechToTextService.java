@@ -4,6 +4,9 @@ import com.openai.client.OpenAIClient;
 import com.openai.core.MultipartField;
 import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
 import com.openai.models.audio.transcriptions.TranscriptionCreateResponse;
+
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -114,10 +117,12 @@ public class SpeechToTextService {
                 "OpenAI client not initialised. Check app.mock-mode and OPENAI_API_KEY.")
         );
 
-        // MultipartField lets us attach both the bytes AND the filename.
-        // OpenAI uses the filename extension (e.g. ".mp3") to know how to decode the audio.
-        MultipartField<byte[]> fileField = MultipartField.<byte[]>builder()
-            .value(audioBytes)
+        // The SDK's .file() accepts MultipartField<InputStream>, not byte[].
+        // We wrap our byte[] in a ByteArrayInputStream to satisfy the type,
+        // and attach the filename so OpenAI knows the audio format (.mp3, .wav, etc.).
+        InputStream audioStream = new ByteArrayInputStream(audioBytes);
+        MultipartField<InputStream> fileField = MultipartField.<InputStream>builder()
+            .value(audioStream)
             .filename(filename)
             .contentType("audio/mpeg")
             .build();
