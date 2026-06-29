@@ -116,16 +116,15 @@ public class ImageService {
     /**
      * REAL MODE: calls the OpenAI Images API to generate one image.
      *
-     * Key steps:
-     *   1. Build ImageGenerateParams with the prompt, model, and n=1.
-     *   2. Call client.images().generate() — this is a blocking (non-streaming) call.
-     *   3. Extract the URL from the first image in the response.
+     * Why base64 instead of a URL?
+     * gpt-image-1 and gpt-image-1-mini always return the image as base64-encoded
+     * data — they do NOT return a hosted URL like DALL-E 3 does.
+     * We wrap the base64 string in a "data URI" so any browser or HTTP client
+     * can display it directly:
      *
-     * Why n(1)?
-     * n controls how many images to generate. We always request exactly 1
-     * to keep costs low and the response simple.
+     *   data:image/png;base64,<base64-string>
      *
-     * Quality values (low → cheapest/fastest, hd → best detail):
+     * Quality values (low → cheapest/fastest, high → best detail):
      *   low, medium, high, standard, hd, auto
      */
     private String generateFromOpenAI(String prompt, String quality) {
@@ -135,7 +134,6 @@ public class ImageService {
         );
 
         // Convert the quality string to the SDK's Quality enum.
-        // Quality.of() accepts the string value directly (case-sensitive lowercase).
         Quality sdkQuality = Quality.of(quality);
 
         // Build the request parameters
@@ -149,12 +147,15 @@ public class ImageService {
         // Call the API — returns an ImagesResponse containing a list of Image objects
         ImagesResponse response = client.images().generate(params);
 
-        // Extract the URL from the first (and only) image in the list
-        return response.data()
+        // gpt-image-1-mini returns base64 data, not a hosted URL.
+        // We convert it to a data URI so it can be used directly in a browser <img> tag.
+        String base64 = response.data()
             .filter(images -> !images.isEmpty())
             .map(images -> images.get(0))
-            .flatMap(image -> image.url())
+            .flatMap(image -> image.b64Json())
             .orElseThrow(() -> new IllegalStateException(
-                "OpenAI returned a response but no image URL was present."));
+                "OpenAI returned a response but no image data was present."));
+
+        return "data:image/png;base64," + base64;
     }
 }
