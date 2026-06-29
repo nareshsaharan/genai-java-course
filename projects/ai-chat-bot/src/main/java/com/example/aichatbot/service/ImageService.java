@@ -34,7 +34,7 @@ public class ImageService {
 
     // The model we use for image generation.
     // gpt-image-1 is OpenAI's image generation model.
-    private static final String IMAGE_MODEL = "gpt-image-1";
+    private static final String IMAGE_MODEL = "gpt-image-1-mini";
 
     // Maximum characters allowed in a prompt (keeps costs predictable).
     private static final int MAX_PROMPT_CHARS = 500;
