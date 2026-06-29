@@ -3,6 +3,8 @@ package com.example.aichatbot.controller;
 import com.example.aichatbot.dto.ImageRequest;
 import com.example.aichatbot.dto.ImageResponse;
 import com.example.aichatbot.service.ImageService;
+import com.example.aichatbot.store.ImageStore;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,9 +31,11 @@ import org.springframework.web.bind.annotation.*;
 public class ImageController {
 
     private final ImageService imageService;
+    private final ImageStore imageStore;
 
-    public ImageController(ImageService imageService) {
+    public ImageController(ImageService imageService, ImageStore imageStore) {
         this.imageService = imageService;
+        this.imageStore   = imageStore;
     }
 
     /**
@@ -45,6 +49,29 @@ public class ImageController {
         // Delegate all logic to the service — controller stays thin
         String imageUrl = imageService.generateImage(request.prompt(), request.quality());
         return new ImageResponse(imageUrl, "Image generated successfully");
+    }
+
+    /**
+     * Serve a previously generated image by its ID.
+     *
+     * When ImageService generates a real image it saves the PNG bytes in
+     * ImageStore and returns a URL pointing here.  This endpoint reads those
+     * bytes and streams them back as image/png so any browser can display them.
+     *
+     * Try it:
+     *   Open http://localhost:8080/api/multimodal/image/{imageId} in a browser.
+     */
+    @GetMapping(value = "/image/{imageId}", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> viewImage(@PathVariable String imageId) {
+        byte[] imageBytes = imageStore.get(imageId);
+
+        if (imageBytes == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .body(imageBytes);
     }
 
     /**
