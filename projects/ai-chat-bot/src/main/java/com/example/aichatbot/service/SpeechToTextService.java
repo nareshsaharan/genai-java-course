@@ -1,6 +1,7 @@
 package com.example.aichatbot.service;
 
 import com.openai.client.OpenAIClient;
+import com.openai.core.MultipartField;
 import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
 import com.openai.models.audio.transcriptions.TranscriptionCreateResponse;
 import org.slf4j.Logger;
@@ -68,7 +69,7 @@ public class SpeechToTextService {
         }
 
         log.info("[REAL] Transcribing: {} ({} bytes)", filename, audioBytes.length);
-        return transcribeWithOpenAI(audioBytes);
+        return transcribeWithOpenAI(filename, audioBytes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -101,21 +102,28 @@ public class SpeechToTextService {
 
     /**
      * REAL MODE:
-     *   1. Build TranscriptionCreateParams with the raw audio bytes.
-     *   2. Call client.audio().transcriptions().create() — OpenAI listens and returns text.
+     *   1. Wrap the audio bytes in a MultipartField so the SDK sends the filename
+     *      to OpenAI — without it, OpenAI can't detect the audio format and rejects
+     *      the request with a 400 error.
+     *   2. Call client.audio().transcriptions().create().
      *   3. Extract the text string from the response.
-     *
-     * Why pass bytes directly?
-     * The OpenAI SDK accepts byte[] natively — no temp file needed.
      */
-    private String transcribeWithOpenAI(byte[] audioBytes) {
+    private String transcribeWithOpenAI(String filename, byte[] audioBytes) {
         OpenAIClient client = openAIClient.orElseThrow(() ->
             new IllegalStateException(
                 "OpenAI client not initialised. Check app.mock-mode and OPENAI_API_KEY.")
         );
 
+        // MultipartField lets us attach both the bytes AND the filename.
+        // OpenAI uses the filename extension (e.g. ".mp3") to know how to decode the audio.
+        MultipartField<byte[]> fileField = MultipartField.<byte[]>builder()
+            .value(audioBytes)
+            .filename(filename)
+            .contentType("audio/mpeg")
+            .build();
+
         TranscriptionCreateParams params = TranscriptionCreateParams.builder()
-            .file(audioBytes)
+            .file(fileField)
             .model(WHISPER_MODEL)
             .build();
 
