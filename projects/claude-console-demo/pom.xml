@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- ── Project coordinates ── -->
+  <groupId>com.example</groupId>
+  <artifactId>claude-console-demo</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>claude-console-demo</name>
+  <description>Beginner-friendly console app using the official Anthropic Java SDK</description>
+
+  <properties>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Check https://central.sonatype.com/artifact/com.anthropic/anthropic-java for newer releases -->
+    <anthropic.version>2.47.0</anthropic.version>
+    <!-- Main class, reused by both the exec plugin and the shaded jar's manifest -->
+    <mainClass>com.example.claude.demo.Main</mainClass>
+  </properties>
+
+  <dependencies>
+
+    <!-- Official Anthropic Java SDK (Claude Messages API) -->
+    <dependency>
+      <groupId>com.anthropic</groupId>
+      <artifactId>anthropic-java</artifactId>
+      <version>${anthropic.version}</version>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+
+      <!-- Compile with Java 21 -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <release>21</release>
+        </configuration>
+      </plugin>
+
+      <!-- Lets you run the app with: mvn compile exec:java
+           (override which class runs with -Dexec.mainClass=...) -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <mainClass>${exec.mainClass}</mainClass>
+        </configuration>
+      </plugin>
+
+      <!-- Bundles the app + its dependencies into one runnable jar:
+           mvn package
+           java -jar target/claude-console-demo-0.0.1-SNAPSHOT-shaded.jar -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>shaded</shadedClassifierName>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>${mainClass}</mainClass>
+                </transformer>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+    </plugins>
+  </build>
+
+  <!-- Default value for the exec.mainClass property used by exec-maven-plugin above.
+       Override on the command line, e.g.:
+       mvn compile exec:java -Dexec.mainClass=com.example.claude.demo.FirstClaudeCall -->
+  <profiles>
+    <profile>
+      <id>default-exec-main</id>
+      <activation>
+        <property>
+          <name>!exec.mainClass</name>
+        </property>
+      </activation>
+      <properties>
+        <exec.mainClass>${mainClass}</exec.mainClass>
+      </properties>
+    </profile>
+  </profiles>
+
+</project>

@@ -1,0 +1,145 @@
+Prompt 5: Create Java MCP server project
+
+Create a Java 21 Spring Boot project for an MCP server.
+
+Project details:
+1. Project name: lms-mcp-server
+2. Package: com.example.lmsmcp
+3. Use Maven
+4. Use Spring Boot
+5. Use Spring AI MCP server starter
+6. Run using STDIO because it will connect with Claude Desktop
+7. Do not use any database
+8. Use in-memory data only
+9. Do not use System.out.println anywhere
+
+Generate:
+1. pom.xml
+2. application.properties
+3. Main application class
+4. Folder/package structure
+
+
+
+Prompt 6: Add LMS MCP tools
+
+Now add MCP tools for an LMS system.
+
+Create these tools:
+
+1. getCourseDetails(courseId)
+2. getLessonPlan(topic)
+3. generateQuiz(topic, difficulty)
+4. checkStudentProgress(studentId)
+5. recommendNextTopic(studentId)
+
+Rules:
+1. Use Spring AI MCP-compatible annotations.
+2. If @McpTool is available, use @McpTool and @McpToolParam.
+3. If the selected Spring AI version uses @Tool and @ToolParam, use that consistently.
+4. Add clear description for every tool.
+5. Add clear description for every parameter.
+6. Return Java DTO objects, not raw strings.
+7. Add simple validation.
+8. Return readable error response when input is invalid.
+
+Give complete Java code.
+
+
+Prompt 7: Create DTO classes
+
+Create proper DTO classes for my LMS MCP server.
+
+I need DTOs for:
+1. CourseDetailsResponse
+2. LessonPlanResponse
+3. QuizResponse
+4. QuizQuestion
+5. StudentProgressResponse
+6. NextTopicResponse
+7. ErrorResponse
+
+Use Java records if suitable.
+Keep the structure simple for beginner students.
+Add comments explaining each DTO.
+
+
+Prompt 8: Add in-memory service layer
+
+Create an in-memory service layer for the LMS MCP server.
+
+Requirements:
+1. Store 3 courses: Java Basics, Spring Boot Basics, GenAI Basics
+2. Store 3 students with progress
+3. Service methods should be called by MCP tools
+4. Keep business logic separate from tool class
+5. Add validation for invalid courseId, studentId, topic, and difficulty
+6. Return clear responses
+
+Give complete code with package names.
+
+
+Prompt 9: Fix STDIO logging issue
+
+Review this MCP server code and make it safe for STDIO transport.
+
+Important:
+1. Remove all System.out.println
+2. Disable Spring Boot banner if needed
+3. Make logs go to stderr or file
+4. Add logback-spring.xml if required
+5. Explain why stdout breaks MCP server communication
+6. Give final corrected files
+
+This is important because Claude Desktop communicates with MCP server over stdin/stdout.
+
+
+Prompt 10: Add Maven build and run commands
+
+Give me exact commands to build and run this Java MCP server.
+
+Include:
+1. mvn clean package
+2. java -jar command
+3. How to find generated jar path
+4. How to check Java version
+5. Common errors and fixes
+
+Assume I am using macOS.
+
+
+Prompt 11: Create Claude Desktop config
+
+Create claude_desktop_config.json for my Java MCP server.
+
+My jar path is:
+<PASTE_FULL_JAR_PATH_HERE>
+
+Requirements:
+1. Use command: java
+2. Use args: -jar and jar path
+3. Use server name: lms-mcp-server
+4. Explain where to place this config on macOS
+5. Explain where to place this config on Windows
+6. Mention that Claude Desktop must be fully restarted after config change
+
+
+Prompt 12: Debug Claude Desktop connection
+
+My Java MCP server is not showing in Claude Desktop.
+
+Give me a step-by-step debugging checklist.
+
+Check:
+1. Is claude_desktop_config.json valid JSON?
+2. Is jar path absolute?
+3. Is Java installed and available?
+4. Is server printing anything to stdout?
+5. Is Spring Boot banner disabled?
+6. How to check Claude Desktop logs?
+7. How to test using MCP Inspector?
+8. How to confirm the MCP server started correctly?
+
+Give macOS commands.
+
+

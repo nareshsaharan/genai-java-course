@@ -1,0 +1,128 @@
+
+
+Create a Java 21 Maven console project using the official Anthropic Java SDK.
+
+Requirements:
+1. Use latest anthropic-java SDK dependency.
+2. Read API key from ANTHROPIC_API_KEY environment variable.
+3. Create package com.example.claude.demo.
+4. Add a Main class.
+5. Add clean README steps to run the project.
+6. Keep code beginner-friendly with comments.
+
+
+******************************************************************************
+
+
+In this Maven project, add a class FirstClaudeCall.java.
+
+Goal:
+Call Claude from Java and ask:
+"Explain Java inheritance in simple words with one code example."
+
+Requirements:
+1. Use AnthropicOkHttpClient.fromEnv().
+2. Use Messages API.
+3. Print only the text response.
+4. Add comments explaining model, maxTokens, user message, and response parsing.
+5. Make the code easy for beginner Java students.
+
+
+
+******************************************************************************
+
+Add a class StatelessDemo.java to demonstrate that Claude API is stateless.
+
+Demo:
+1. First API call: "My name is Ankur."
+2. Second API call: "What is my name?"
+
+In the second call, do not send the first message history.
+
+Expected teaching point:
+Claude may not know the name because every API request is independent.
+
+Add comments and print clear headings:
+"CALL 1"
+"CALL 2 WITHOUT HISTORY"
+
+******************************************************************************
+
+
+
+Add a class ConversationHistoryDemo.java.
+
+Goal:
+Show how Java code preserves context by maintaining a List of messages.
+
+Flow:
+1. Add user message: "My name is Ankur."
+2. Call Claude.
+3. Store Claude assistant reply in history.
+4. Add second user message: "What is my name?"
+5. Call Claude again with full history.
+6. Print final answer.
+
+Explain in comments:
+Claude does not remember automatically.
+Our Java application sends previous messages again
+
+
+******************************************************************************
+
+
+
+Add a class StreamingDemo.java.
+
+Goal:
+Use Claude streaming API from Java to print output chunk by chunk.
+
+Prompt to Claude:
+"Write a beginner-friendly explanation of Spring Boot REST Controller with example."
+
+Requirements:
+1. Use streaming API from the official Anthropic Java SDK.
+2. Print text as it arrives.
+3. Flush output so students can see typing effect.
+4. Add comments explaining why streaming improves UX.
+5. Handle errors gracefully.
+
+
+
+******************************************************************************
+
+Add a class PromptCachingDemo.java.
+
+Goal:
+Demonstrate prompt caching with a large static system prompt.
+
+Create a large static string called COMPANY_POLICY containing:
+- return policy
+- refund policy
+- shipping policy
+- cancellation policy
+- warranty policy
+Make it long enough to look realistic.
+
+Then make two API calls:
+1. User asks: "Can I return a product after 7 days?"
+2. User asks: "How long does refund take?"
+
+Requirements:
+1. Put COMPANY_POLICY in the system/static part.
+2. Add cache_control for ephemeral caching.
+3. Print usage fields related to cache creation/read if available from SDK.
+4. Add comments explaining:
+   - first request creates cache
+   - second request can read from cache
+   - user question is dynamic and should stay after static prompt
+
+
+******************************************************************************
+
+
+
+
+
+
+
