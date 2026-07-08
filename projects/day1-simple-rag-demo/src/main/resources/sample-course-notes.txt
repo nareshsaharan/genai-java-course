@@ -1,0 +1,15 @@
+Embeddings turn text into vectors. Embeddings represent the meaning of text as numbers. Similar text produces similar embeddings, so embeddings power semantic search. Every chunk gets its own embedding when a document is ingested, and every question also becomes an embedding, so the two can be compared to find the closest embeddings quickly. Embeddings are the foundation that retrieval and top-k search build on top of.
+
+A vector database stores embeddings so they can be searched quickly with nearest-neighbor matching instead of exact keyword matching. Popular vector databases include Pinecone, Weaviate, and pgvector.
+
+Semantic search compares a query's vector against stored vectors to find the closest matches, even when the wording differs from the source text.
+
+RAG stands for Retrieval-Augmented Generation. RAG answers questions with your own documents. RAG retrieves relevant chunks and gives them to the model as context. RAG grounds answers in real, verifiable information, unlike a model relying only on memorized training data.
+
+Chunking splits a long document into smaller, overlapping pieces of text called chunks, so each piece stays small enough to embed and search accurately.
+
+Top-k retrieval finds the k most relevant chunks for a question, ranked by similarity score, then keeps only the best matches.
+
+Hallucination happens when a model generates a confident answer that lacks support from any real source. RAG reduces hallucination by grounding answers in retrieved documents and admitting it does not know when no relevant context exists.
+
+Prompt engineering means writing clear instructions so a model produces better answers, including context, a clear question, and rules to follow.
