@@ -19,6 +19,7 @@ import org.springframework.util.StringUtils;
 
 import com.studybuddy.common.exception.AudioServiceNotConfiguredException;
 import com.studybuddy.config.properties.AudioProperties;
+import com.studybuddy.settings.RuntimeSecretsService;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -39,12 +40,14 @@ public class OpenAiWhisperClient implements WhisperClient {
     private static final Duration RETRY_BACKOFF = Duration.ofMillis(400);
 
     private final AudioProperties properties;
+    private final RuntimeSecretsService secrets;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
-    public OpenAiWhisperClient(AudioProperties properties, ObjectMapper objectMapper) {
+    public OpenAiWhisperClient(AudioProperties properties, ObjectMapper objectMapper, RuntimeSecretsService secrets) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.secrets = secrets;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(properties.timeoutSeconds()))
                 .build();
@@ -52,7 +55,7 @@ public class OpenAiWhisperClient implements WhisperClient {
 
     @Override
     public WhisperTranscriptionResult transcribe(byte[] audioBytes, String filename, String mimeType) {
-        if (!StringUtils.hasText(properties.apiKey())) {
+        if (!StringUtils.hasText(secrets.getOpenAiKey())) {
             throw new AudioServiceNotConfiguredException(
                     "Voice input is not configured on this server — set OPENAI_API_KEY to enable it.");
         }
@@ -94,7 +97,7 @@ public class OpenAiWhisperClient implements WhisperClient {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(TRANSCRIPTION_URL))
                 .timeout(Duration.ofSeconds(properties.timeoutSeconds()))
-                .header("Authorization", "Bearer " + properties.apiKey())
+                .header("Authorization", "Bearer " + secrets.getOpenAiKey())
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .build();
