@@ -125,6 +125,16 @@ public class GlobalExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 
+    @ExceptionHandler(ClaudeNotConfiguredException.class)
+    public ProblemDetail handleClaudeNotConfigured(ClaudeNotConfiguredException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
+    @ExceptionHandler(ApiKeyValidationException.class)
+    public ProblemDetail handleApiKeyValidation(ApiKeyValidationException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ProblemDetail handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex) {
         // Thrown by Spring's own handler mapping — e.g. a multipart-only
