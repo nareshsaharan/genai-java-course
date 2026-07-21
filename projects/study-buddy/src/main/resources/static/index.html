@@ -5,19 +5,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Study Buddy</title>
   <link rel="stylesheet" href="styles.css" />
+  <script>
+    (function () {
+      var saved = localStorage.getItem('studybuddy-theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
 
   <header class="app-header">
-    <h1>Study Buddy</h1>
+    <div class="header-top-row">
+      <h1>Study Buddy</h1>
+      <button type="button" id="theme-toggle-button" class="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+    </div>
     <p class="app-subtitle">Upload your course notes, ask grounded questions, and generate flashcards.</p>
   </header>
 
+  <nav class="tab-nav" role="tablist" aria-label="Study Buddy sections">
+    <button type="button" class="tab-button" role="tab" data-tab="settings" aria-selected="true">⚙ Settings</button>
+    <button type="button" class="tab-button" role="tab" data-tab="upload" aria-selected="false">📄 Upload</button>
+    <button type="button" class="tab-button" role="tab" data-tab="tutor" aria-selected="false">💬 Ask Tutor</button>
+    <button type="button" class="tab-button" role="tab" data-tab="flashcard" aria-selected="false">🗂 Flashcards</button>
+    <button type="button" class="tab-button" role="tab" data-tab="quiz" aria-selected="false">📝 Quiz</button>
+    <button type="button" class="tab-button" role="tab" data-tab="progress" aria-selected="false">📊 Progress</button>
+  </nav>
+
   <main id="main-content">
 
+    <!-- ============ 0. Settings ============ -->
+    <section class="card" id="tab-panel-settings" aria-labelledby="settings-heading">
+      <h2 id="settings-heading">API Keys</h2>
+      <p class="section-hint">Keys are stored on this server only, verified against the real provider before saving, and never sent back to your browser.</p>
+
+      <div class="settings-key-panel">
+        <h3>Claude (Anthropic)</h3>
+        <div class="settings-status">
+          <span class="classification-badge" id="settings-anthropic-badge">Checking&hellip;</span>
+          <span id="settings-anthropic-masked"></span>
+        </div>
+        <div class="settings-key-row">
+          <div class="settings-input-wrapper">
+            <input type="password" id="settings-anthropic-input" placeholder="sk-ant-..." autocomplete="off" />
+            <button type="button" class="settings-show-toggle" id="settings-anthropic-show" aria-label="Show key">👁</button>
+          </div>
+          <button type="button" id="settings-anthropic-save">Save &amp; Verify</button>
+          <button type="button" id="settings-anthropic-clear" class="secondary" hidden>Clear</button>
+        </div>
+        <div id="settings-anthropic-message" class="field-error" role="alert"></div>
+      </div>
+
+      <div class="settings-key-panel">
+        <h3>Whisper (OpenAI) <span class="optional">(optional &mdash; for voice input)</span></h3>
+        <div class="settings-status">
+          <span class="classification-badge" id="settings-openai-badge">Checking&hellip;</span>
+          <span id="settings-openai-masked"></span>
+        </div>
+        <div class="settings-key-row">
+          <div class="settings-input-wrapper">
+            <input type="password" id="settings-openai-input" placeholder="sk-..." autocomplete="off" />
+            <button type="button" class="settings-show-toggle" id="settings-openai-show" aria-label="Show key">👁</button>
+          </div>
+          <button type="button" id="settings-openai-save">Save &amp; Verify</button>
+          <button type="button" id="settings-openai-clear" class="secondary" hidden>Clear</button>
+        </div>
+        <div id="settings-openai-message" class="field-error" role="alert"></div>
+      </div>
+    </section>
+
     <!-- ============ 1. Document upload ============ -->
-    <section class="card" aria-labelledby="upload-heading">
+    <section class="card" id="tab-panel-upload" aria-labelledby="upload-heading" hidden>
       <h2 id="upload-heading">Upload course notes</h2>
       <p class="section-hint">PDF, TXT or Markdown files are supported.</p>
 
@@ -41,8 +100,11 @@
     </section>
 
     <!-- ============ 2. RAG Tutor ============ -->
-    <section class="card" aria-labelledby="tutor-heading">
+    <section class="card" id="tab-panel-tutor" aria-labelledby="tutor-heading" hidden>
       <h2 id="tutor-heading">Ask your tutor</h2>
+      <div id="tutor-unconfigured-banner" class="status-region status-warn" role="alert" hidden>
+        Add your Claude API key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab to use this.
+      </div>
       <p class="section-hint">Answers are grounded strictly in your uploaded course notes.</p>
 
       <form id="tutor-form" novalidate>
@@ -54,6 +116,9 @@
 
         <!-- ============ Optional voice input ============ -->
         <div class="voice-input" aria-live="polite">
+          <div id="voice-unconfigured-banner" class="status-region status-warn" role="alert" hidden>
+            Add your OpenAI API key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab to use voice input.
+          </div>
           <button type="button" id="voice-record-button" class="secondary" aria-pressed="false">
             <span aria-hidden="true">&#127908;</span> Record voice question
           </button>
@@ -109,8 +174,11 @@
     </section>
 
     <!-- ============ 3. Flashcard generator ============ -->
-    <section class="card" aria-labelledby="flashcard-heading">
+    <section class="card" id="tab-panel-flashcard" aria-labelledby="flashcard-heading" hidden>
       <h2 id="flashcard-heading">Generate flashcards</h2>
+      <div id="flashcard-unconfigured-banner" class="status-region status-warn" role="alert" hidden>
+        Add your Claude API key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab to use this.
+      </div>
       <p class="section-hint">Flashcards are generated only from topics covered in your uploaded notes.</p>
 
       <form id="flashcard-form" novalidate>
@@ -170,8 +238,11 @@
     </section>
 
     <!-- ============ 4. Quiz ============ -->
-    <section class="card" aria-labelledby="quiz-heading">
+    <section class="card" id="tab-panel-quiz" aria-labelledby="quiz-heading" hidden>
       <h2 id="quiz-heading">Take a quiz</h2>
+      <div id="quiz-unconfigured-banner" class="status-region status-warn" role="alert" hidden>
+        Add your Claude API key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab to use this.
+      </div>
       <p class="section-hint">Questions are grounded in your uploaded course notes. Correct answers are revealed only after you submit.</p>
 
       <form id="quiz-form" novalidate>
@@ -225,7 +296,7 @@
     </section>
 
     <!-- ============ 5. Progress / weak topics ============ -->
-    <section class="card" aria-labelledby="progress-heading">
+    <section class="card" id="tab-panel-progress" aria-labelledby="progress-heading" hidden>
       <h2 id="progress-heading">Your progress</h2>
       <p class="section-hint">
         Weak topics are based on recency-weighted quiz accuracy over at least a
