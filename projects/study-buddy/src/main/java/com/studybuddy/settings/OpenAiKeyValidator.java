@@ -7,6 +7,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.function.Function;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.studybuddy.common.exception.ApiKeyValidationException;
@@ -26,6 +27,7 @@ public class OpenAiKeyValidator {
 
     private final Function<String, HttpResponse<String>> prober;
 
+    @Autowired
     public OpenAiKeyValidator() {
         this(OpenAiKeyValidator::probeRealEndpoint);
     }

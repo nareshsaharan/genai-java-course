@@ -3,6 +3,7 @@ package com.studybuddy.settings;
 import java.time.Duration;
 import java.util.function.Function;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.studybuddy.common.exception.ApiKeyValidationException;
@@ -24,6 +25,7 @@ public class AnthropicKeyValidator {
 
     private final Function<String, ChatModel> chatModelFactory;
 
+    @Autowired
     public AnthropicKeyValidator(ClaudeProperties properties) {
         this(apiKey -> AnthropicChatModel.builder()
                 .apiKey(apiKey)
