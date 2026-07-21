@@ -201,6 +201,34 @@ async function apiGetRecommendation() {
   return response.json();
 }
 
+async function apiGetSettingsStatus() {
+  const response = await fetch('/api/settings/keys');
+  if (!response.ok) {
+    throw new ApiError(await readErrorMessage(response), response.status);
+  }
+  return response.json();
+}
+
+async function apiSaveKey(provider, apiKey) {
+  const response = await fetch(`/api/settings/keys/${provider}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey }),
+  });
+  if (!response.ok) {
+    throw new ApiError(await readErrorMessage(response), response.status);
+  }
+  return response.json();
+}
+
+async function apiClearKey(provider) {
+  const response = await fetch(`/api/settings/keys/${provider}`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new ApiError(await readErrorMessage(response), response.status);
+  }
+  return response.json();
+}
+
 /* ---------------------------------------------------------------------
  * UI: 1. Document upload
  * ------------------------------------------------------------------- */
@@ -988,12 +1016,133 @@ function initTabNav() {
 }
 
 /* ---------------------------------------------------------------------
+ * UI: 0. Settings (API keys) + configured-state gating
+ * ------------------------------------------------------------------- */
+
+function describeStatus(status) {
+  if (!status.configured) {
+    return 'Not configured';
+  }
+  return status.source === 'env' ? 'Using environment default' : 'Saved (custom)';
+}
+
+function initKeyPanel(provider) {
+  const badge = document.getElementById(`settings-${provider}-badge`);
+  const maskedLabel = document.getElementById(`settings-${provider}-masked`);
+  const input = document.getElementById(`settings-${provider}-input`);
+  const showToggle = document.getElementById(`settings-${provider}-show`);
+  const saveButton = document.getElementById(`settings-${provider}-save`);
+  const clearButton = document.getElementById(`settings-${provider}-clear`);
+  const message = document.getElementById(`settings-${provider}-message`);
+
+  function render(status) {
+    badge.textContent = describeStatus(status);
+    badge.className = `classification-badge classification-${status.configured ? 'not_weak' : 'weak'}`;
+    maskedLabel.textContent = status.maskedKey || '';
+    clearButton.hidden = status.source !== 'saved';
+  }
+
+  showToggle.addEventListener('click', () => {
+    input.type = input.type === 'password' ? 'text' : 'password';
+  });
+
+  saveButton.addEventListener('click', async () => {
+    message.textContent = '';
+    const apiKey = input.value.trim();
+    if (!apiKey) {
+      message.textContent = 'Please paste a key first.';
+      return;
+    }
+
+    saveButton.disabled = true;
+    try {
+      const status = await apiSaveKey(provider, apiKey);
+      render(status);
+      input.value = '';
+      message.textContent = '';
+      await refreshGating();
+    } catch (error) {
+      message.textContent = error instanceof ApiError
+        ? error.message
+        : 'Something went wrong while saving this key. Please try again.';
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+
+  clearButton.addEventListener('click', async () => {
+    message.textContent = '';
+    clearButton.disabled = true;
+    try {
+      const status = await apiClearKey(provider);
+      render(status);
+      await refreshGating();
+    } catch (error) {
+      message.textContent = error instanceof ApiError
+        ? error.message
+        : 'Something went wrong while clearing this key. Please try again.';
+    } finally {
+      clearButton.disabled = false;
+    }
+  });
+
+  return { render };
+}
+
+function applyGating(status) {
+  const claudeConfigured = status.anthropic.configured;
+  const openAiConfigured = status.openai.configured;
+
+  const tutorBanner = document.getElementById('tutor-unconfigured-banner');
+  const tutorButton = document.getElementById('tutor-button');
+  tutorBanner.hidden = claudeConfigured;
+  tutorButton.disabled = !claudeConfigured;
+
+  const flashcardBanner = document.getElementById('flashcard-unconfigured-banner');
+  const flashcardButton = document.getElementById('flashcard-button');
+  flashcardBanner.hidden = claudeConfigured;
+  flashcardButton.disabled = !claudeConfigured;
+
+  const quizBanner = document.getElementById('quiz-unconfigured-banner');
+  const quizGenerateButton = document.getElementById('quiz-generate-button');
+  quizBanner.hidden = claudeConfigured;
+  quizGenerateButton.disabled = !claudeConfigured;
+
+  const voiceBanner = document.getElementById('voice-unconfigured-banner');
+  const voiceRecordButton = document.getElementById('voice-record-button');
+  voiceBanner.hidden = openAiConfigured;
+  if (!openAiConfigured) {
+    voiceRecordButton.disabled = true;
+  } else if (typeof window.MediaRecorder !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+    voiceRecordButton.disabled = false;
+  }
+}
+
+let refreshGating = async () => {};
+
+function initSettingsSection() {
+  const anthropicPanel = initKeyPanel('anthropic');
+  const openAiPanel = initKeyPanel('openai');
+
+  async function loadAndApply() {
+    const status = await apiGetSettingsStatus();
+    anthropicPanel.render(status.anthropic);
+    openAiPanel.render(status.openai);
+    applyGating(status);
+  }
+
+  refreshGating = loadAndApply;
+  loadAndApply();
+}
+
+/* ---------------------------------------------------------------------
  * Bootstrap
  * ------------------------------------------------------------------- */
 
 document.addEventListener('DOMContentLoaded', () => {
   initThemeToggle();
   initTabNav();
+  initSettingsSection();
   initUploadSection();
   initTutorSection();
   initVoiceInputSection(document.getElementById('tutor-question'));
