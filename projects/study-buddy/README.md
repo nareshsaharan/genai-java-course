@@ -11,6 +11,7 @@ capstone around LangChain4j, Claude (Anthropic), and pgvector.
 - [Quick start (Docker)](#quick-start-docker)
 - [Quick start (local)](#quick-start-local)
 - [Configuration reference](#configuration-reference)
+- [Settings UI (runtime-configurable API keys)](#settings-ui-runtime-configurable-api-keys)
 - [Features](#features)
 - [Weak-topic scoring algorithm](#weak-topic-scoring-algorithm)
 - [Observability](#observability)
@@ -192,11 +193,25 @@ Every setting is env-var driven with a working local default — see
 | Prefix | Record | Purpose |
 |---|---|---|
 | `studybuddy.database` | `DatabaseProperties` | pgvector store connection (separate from `spring.datasource.*` since the embedding store needs discrete host/port/table fields) |
-| `studybuddy.claude` | `ClaudeProperties` | Anthropic API key/model/timeout. **Required** — the app fails to start without `ANTHROPIC_API_KEY` (Claude backs the core tutor/flashcard/quiz features; this is a deliberate fail-fast choice, not an oversight — see [Security notes](#security-notes)) |
+| `studybuddy.claude` | `ClaudeProperties` | Anthropic API key/model/timeout. Optional at startup — seeds [`RuntimeSecretsService`](#settings-ui-runtime-configurable-api-keys), which can also be configured (or overridden) later from the Settings tab in the UI without a restart |
 | `studybuddy.rag` | `RagProperties` | chunk size/overlap, retrieval topK/minScore |
 | `studybuddy.progress` | `ProgressProperties` | weak-topic classification thresholds |
 | `studybuddy.mcp` | `McpProperties` | MCP endpoint shared-secret (only read under `--spring.profiles.active=mcp`) |
 | `studybuddy.audio` | `AudioProperties` | optional Whisper transcription — degrades to a clean 503, never blocks startup |
+
+---
+
+## Settings UI (runtime-configurable API keys)
+
+The **Settings** tab (first tab in the UI) lets you paste, verify, and save Claude/OpenAI keys from the browser instead of only through `.env`:
+
+- **Save & Verify** makes one real, minimal call to the provider with the *submitted* key (never the currently-active one) before saving anything — an invalid key is rejected inline with the provider's exact error message, and the working key stays untouched.
+- Saved keys are persisted server-side to a local, gitignored file (`./data/runtime-secrets.properties`) so they survive an app restart — they're never sent back to the browser (only a masked form, e.g. `sk-ant...ab12`).
+- Precedence at startup: **saved-via-UI > `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` env var > unconfigured**. Existing `.env`/`docker-compose.yml` setups keep working unchanged.
+- While Claude isn't configured, the Tutor/Flashcards/Quiz tabs show a banner and disable their submit buttons instead of letting you hit a 503 after submitting; same for Voice input and the OpenAI key.
+- A light/dark theme toggle lives next to the title — light is "Indigo Educational", dark is "Slate Dark-First" (two distinct palettes, not one palette at two brightness levels); the choice is remembered in the browser and defaults to your OS preference on first visit.
+
+Backend pieces: `RuntimeSecretsService` (source of truth + persistence), `AnthropicKeyValidator`/`OpenAiKeyValidator` (pre-save verification), `DynamicAnthropicChatModel` (rebuilds its cached Claude client when the key changes, no restart needed), `SettingsController` (`GET`/`PUT`/`DELETE /api/settings/keys/*`) — see [API.md](API.md) for the full request/response shapes.
 
 ---
 
@@ -423,15 +438,13 @@ UI+curl test pass with sample data.
   (same origin). If a separately-hosted frontend is ever added, a
   `CorsConfigurationSource` restricted to that specific origin should be
   added rather than a wildcard.
-- **`ClaudeProperties.apiKey` is `@NotBlank`** — the app **fails to start**
-  without `ANTHROPIC_API_KEY`, unlike the audio/MCP features which degrade
-  gracefully to a 503. This is deliberate: Claude backs the core
-  tutor/flashcard/quiz feature set (not an optional add-on like voice input
-  or MCP), so failing fast at startup surfaces a misconfiguration
-  immediately rather than letting the app run in a mostly-broken state.
-  If you'd rather the app start without it and 503 per-request instead
-  (matching the audio pattern), that's a straightforward, contained change —
-  ask if you want it made.
+- **Claude key is no longer required at startup** — `ClaudeProperties.apiKey`
+  was originally `@NotBlank` (fail-fast on a missing `ANTHROPIC_API_KEY`), but
+  now matches the audio/MCP pattern: the app starts fine with no key
+  configured anywhere, and `DynamicAnthropicChatModel` returns a clean 503
+  (`ClaudeNotConfiguredException`) for any tutor/flashcard/quiz request until
+  a key is added — either via `ANTHROPIC_API_KEY` or the Settings tab (see
+  below).
 - **File uploads**: filenames are sanitized (`StringUtils.cleanPath` +
   basename-only extraction) before being used in any file-system path, so a
   crafted `../../etc/passwd`-style filename can't escape the intended
