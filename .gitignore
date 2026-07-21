@@ -12,3 +12,4 @@ target/
 .env
 *.env
 application-local.properties
+.superpowers/
