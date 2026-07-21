@@ -938,10 +938,62 @@ function initQuizSection(onSubmitted) {
 }
 
 /* ---------------------------------------------------------------------
+ * Theme toggle
+ * ------------------------------------------------------------------- */
+
+function initThemeToggle() {
+  const button = document.getElementById('theme-toggle-button');
+
+  function applyIcon(theme) {
+    button.textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+
+  applyIcon(document.documentElement.getAttribute('data-theme') || 'light');
+
+  button.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('studybuddy-theme', next);
+    applyIcon(next);
+  });
+}
+
+/* ---------------------------------------------------------------------
+ * Tab navigation
+ * ------------------------------------------------------------------- */
+
+function initTabNav() {
+  const buttons = Array.from(document.querySelectorAll('.tab-button'));
+
+  function activate(tabName) {
+    for (const button of buttons) {
+      const isActive = button.dataset.tab === tabName;
+      button.setAttribute('aria-selected', String(isActive));
+    }
+    for (const panel of document.querySelectorAll('[id^="tab-panel-"]')) {
+      panel.hidden = panel.id !== `tab-panel-${tabName}`;
+    }
+  }
+
+  for (const button of buttons) {
+    button.addEventListener('click', () => activate(button.dataset.tab));
+  }
+
+  for (const gotoButton of document.querySelectorAll('[data-goto-tab]')) {
+    gotoButton.addEventListener('click', () => activate(gotoButton.dataset.gotoTab));
+  }
+
+  activate('settings');
+}
+
+/* ---------------------------------------------------------------------
  * Bootstrap
  * ------------------------------------------------------------------- */
 
 document.addEventListener('DOMContentLoaded', () => {
+  initThemeToggle();
+  initTabNav();
   initUploadSection();
   initTutorSection();
   initVoiceInputSection(document.getElementById('tutor-question'));
