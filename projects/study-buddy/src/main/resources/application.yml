@@ -43,7 +43,10 @@ management:
       enabled: true
 
 server:
-  port: ${SERVER_PORT:8080}
+  # Render (and similar PaaS hosts) inject their own PORT env var that the
+  # app must bind to; SERVER_PORT remains the override for every other
+  # environment (local, Docker Compose) where PORT isn't set.
+  port: ${PORT:${SERVER_PORT:8080}}
 
 logging:
   level:
