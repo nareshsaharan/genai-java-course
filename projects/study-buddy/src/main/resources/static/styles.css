@@ -1,41 +1,41 @@
-:root {
-  --color-bg: #f5f7fa;
-  --color-surface: #ffffff;
-  --color-border: #dde3ea;
-  --color-text: #1c2530;
-  --color-text-muted: #5c6b7a;
-  --color-primary: #2f6fed;
-  --color-primary-hover: #2559c4;
-  --color-primary-contrast: #ffffff;
-  --color-success-bg: #e5f7ec;
-  --color-success-text: #146c3a;
-  --color-error-bg: #fdecec;
-  --color-error-text: #b3261e;
-  --color-warn-bg: #fff6e0;
-  --color-warn-text: #8a5b00;
+:root[data-theme="light"] {
+  --color-bg: #F5F3FF;
+  --color-surface: #FFFFFF;
+  --color-border: #E0E7FF;
+  --color-text: #1E1B4B;
+  --color-text-muted: #6B7280;
+  --color-primary: #6366F1;
+  --color-primary-hover: #4F46E5;
+  --color-primary-contrast: #FFFFFF;
+  --color-success-bg: #ECFDF5;
+  --color-success-text: #059669;
+  --color-error-bg: #FEF2F2;
+  --color-error-text: #DC2626;
+  --color-warn-bg: #FFF7ED;
+  --color-warn-text: #C2410C;
   --radius: 10px;
-  --shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.06);
-  --focus-ring: 0 0 0 3px rgba(47, 111, 237, 0.35);
+  --shadow: 0 1px 3px rgba(99, 102, 241, 0.08), 0 1px 2px rgba(99, 102, 241, 0.06);
+  --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.35);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #10151c;
-    --color-surface: #1a212b;
-    --color-border: #2b3543;
-    --color-text: #e7ecf2;
-    --color-text-muted: #9aa7b5;
-    --color-primary: #5b8dfd;
-    --color-primary-hover: #7ba1ff;
-    --color-primary-contrast: #0b1220;
-    --color-success-bg: #103a24;
-    --color-success-text: #7bdba3;
-    --color-error-bg: #3a1616;
-    --color-error-text: #ff9c96;
-    --color-warn-bg: #3a2c06;
-    --color-warn-text: #f2c65c;
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-  }
+:root[data-theme="dark"] {
+  --color-bg: #0F172A;
+  --color-surface: #1E293B;
+  --color-border: #334155;
+  --color-text: #F1F5F9;
+  --color-text-muted: #94A3B8;
+  --color-primary: #0EA5E9;
+  --color-primary-hover: #38BDF8;
+  --color-primary-contrast: #0F172A;
+  --color-success-bg: #0F2E23;
+  --color-success-text: #34D399;
+  --color-error-bg: #3A1616;
+  --color-error-text: #FCA5A5;
+  --color-warn-bg: #3A2A06;
+  --color-warn-text: #F59E0B;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --focus-ring: 0 0 0 3px rgba(14, 165, 233, 0.4);
 }
 
 * {
@@ -86,6 +86,112 @@ body {
 .app-subtitle {
   margin: 0;
   color: var(--color-text-muted);
+}
+
+.header-top-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+}
+
+.theme-toggle {
+  position: absolute;
+  right: 1.25rem;
+  top: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: auto;
+}
+
+.tab-nav {
+  max-width: 760px;
+  margin: 1.25rem auto 0;
+  padding: 0 1.25rem;
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tab-button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+}
+
+.tab-button:hover:not(:disabled) {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.tab-button[aria-selected="true"] {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+.settings-key-panel {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-key-panel:first-of-type {
+  margin-top: 1rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.settings-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.settings-key-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.settings-input-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.settings-input-wrapper input {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+.settings-show-toggle {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  padding: 0.25rem;
+  font-size: 0.95rem;
+  align-self: auto;
 }
 
 main {
