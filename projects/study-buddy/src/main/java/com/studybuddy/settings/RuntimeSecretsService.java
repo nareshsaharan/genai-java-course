@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -43,6 +44,7 @@ public class RuntimeSecretsService {
     private final AtomicBoolean anthropicFromFile = new AtomicBoolean(false);
     private final AtomicBoolean openAiFromFile = new AtomicBoolean(false);
 
+    @Autowired
     public RuntimeSecretsService(ClaudeProperties claudeProperties, AudioProperties audioProperties) {
         this(claudeProperties, audioProperties, DEFAULT_SECRETS_FILE);
     }

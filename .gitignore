@@ -13,3 +13,4 @@ target/
 *.env
 application-local.properties
 .superpowers/
+projects/study-buddy/data/runtime-secrets.properties

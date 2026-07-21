@@ -18,6 +18,55 @@ Validation failures additionally include a `fieldErrors` map (`{"topic": "must n
 
 ---
 
+## Settings (runtime-configurable API keys)
+
+### `GET /api/settings/keys`
+
+```bash
+curl http://localhost:8080/api/settings/keys
+```
+
+**200 OK**
+```json
+{
+  "anthropic": { "configured": true, "source": "env", "maskedKey": "sk-ant...ab12" },
+  "openai": { "configured": false, "source": "none", "maskedKey": null }
+}
+```
+`source` ∈ `none` (never configured) / `env` (from `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`, no override saved) / `saved` (overridden via this API, persisted locally). `maskedKey` is never the real key.
+
+### `PUT /api/settings/keys/anthropic` · `PUT /api/settings/keys/openai`
+
+```json
+{ "apiKey": "sk-ant-..." }
+```
+Validates the *submitted* key against the real provider (one minimal Claude call, or a cheap OpenAI `GET /v1/models` call) before persisting anything — an invalid key never overwrites a working one.
+
+```bash
+curl -X PUT http://localhost:8080/api/settings/keys/anthropic \
+  -H "Content-Type: application/json" \
+  -d '{"apiKey": "sk-ant-your-real-key"}'
+```
+
+**200 OK** — returns the updated status for that provider (same shape as one entry from `GET`, above).
+
+| Status | When |
+|---|---|
+| 400 | blank `apiKey` |
+| 422 | the provider rejected the key — `detail` includes the provider's exact error message |
+
+### `DELETE /api/settings/keys/anthropic` · `DELETE /api/settings/keys/openai`
+
+Clears a saved override, reverting to the environment variable default (or `none` if that's unset too).
+
+```bash
+curl -X DELETE http://localhost:8080/api/settings/keys/anthropic
+```
+
+**200 OK** — returns the reverted status for that provider.
+
+---
+
 ## Documents
 
 ### `POST /api/documents/upload`
