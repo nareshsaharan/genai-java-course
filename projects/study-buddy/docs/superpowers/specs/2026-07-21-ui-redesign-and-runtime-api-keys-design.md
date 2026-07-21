@@ -14,7 +14,8 @@ Both problems were explored together via `superpowers:brainstorming` with the vi
 
 | Question | Decision |
 |---|---|
-| Visual style | **Indigo Educational**: primary `#6366F1`, accent/success `#059669`, warm light background `#F5F3FF` / dark-mode slate-indigo. Applied across every existing section, not just new ones. |
+| Visual style | **Two distinct palettes, not one palette in two brightnesses**: light mode is **Indigo Educational** (primary `#6366F1`, accent/success `#059669`, background `#F5F3FF`); dark mode is **Slate Dark-First** (background `#0F172A`, primary `#0EA5E9` sky blue, accent `#F59E0B` amber) — the other visual direction from the original style comparison, reused specifically for dark mode's "modern dev-tool, easy on the eyes for long sessions" feel. Applied across every section. |
+| Theme switching | **Manual toggle** (sun/moon icon in the header), not just automatic OS preference. Defaults to the system's `prefers-color-scheme` on first visit, then remembers the user's explicit choice in `localStorage` from then on. |
 | Page structure | **Tabbed navigation**: Settings · Upload · Ask Tutor · Flashcards · Quiz · Progress. One tab visible at a time, client-side only (still one HTML page, no reload). |
 | Settings placement | Its own tab, first in the list — always reachable, not hidden behind a modal or gear icon. |
 | Key storage | **Server-side, in-memory + persisted to a local gitignored file** (`./data/runtime-secrets.properties`), so a key saved via the UI survives app restarts. |
@@ -29,8 +30,9 @@ Both problems were explored together via `superpowers:brainstorming` with the vi
 
 - `index.html` restructured into tab panels (each existing `<section>` becomes a tab-panel `<div>`, same inner markup/ids as today wherever possible so `app.js` DOM lookups keep working).
 - New Settings tab panel: two key-entry panels (Claude, OpenAI), each with a masked input + show/hide toggle, status badge (`Not configured` / `Using environment default` / `Saved (custom)`), **Save & Verify** button, and a **Clear** button (shown only when a custom key is saved).
-- `styles.css` rewritten with the new Indigo Educational design tokens (light + dark), applied consistently to every tab, not just Settings.
-- `app.js` gains: tab-switching logic (simple show/hide, one active tab class), `apiGetKeySettings()`/`apiSaveKey(provider, key)`/`apiClearKey(provider)`, and a "configured" check gating the Tutor/Flashcard/Quiz/Voice submit controls, refreshed after every Settings save.
+- `styles.css` rewritten as two token sets under `:root[data-theme="light"]` (Indigo Educational) and `:root[data-theme="dark"]` (Slate Dark-First) — deliberately different palettes per theme, not one palette's light/dark shades — applied consistently to every tab.
+- A small sun/moon toggle button in the header sets `data-theme` on `<html>` and writes the choice to `localStorage`; on load, `app.js` reads a saved preference if present, else falls back to `window.matchMedia('(prefers-color-scheme: dark)')`.
+- `app.js` gains: tab-switching logic (simple show/hide, one active tab class), the theme-toggle logic above, `apiGetKeySettings()`/`apiSaveKey(provider, key)`/`apiClearKey(provider)`, and a "configured" check gating the Tutor/Flashcard/Quiz/Voice submit controls, refreshed after every Settings save.
 
 ### Backend
 
