@@ -1,0 +1,70 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:study_buddy_test}
+    username: ${DB_USERNAME:study_buddy}
+    password: ${DB_PASSWORD:study_buddy}
+    driver-class-name: org.postgresql.Driver
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-disabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: WARN
+    com.studybuddy: DEBUG
+
+# Same shape as application.yml, pointed at the test database. The API key
+# defaults to a placeholder value that satisfies @NotBlank validation without
+# ever making a real network call — tests that hit Claude for real must
+# override ANTHROPIC_API_KEY explicitly and are expected to be tagged as
+# integration tests.
+studybuddy:
+  database:
+    host: ${DB_HOST:localhost}
+    port: ${DB_PORT:5432}
+    database: ${DB_NAME:study_buddy_test}
+    username: ${DB_USERNAME:study_buddy}
+    password: ${DB_PASSWORD:study_buddy}
+    vector-table: course_chunks
+    vector-dimension: 384
+
+  claude:
+    api-key: ${ANTHROPIC_API_KEY:test-placeholder-key}
+    model: ${ANTHROPIC_MODEL:claude-sonnet-5}
+    temperature: ${ANTHROPIC_TEMPERATURE:}
+    max-tokens: ${ANTHROPIC_MAX_TOKENS:1024}
+    timeout-seconds: ${ANTHROPIC_TIMEOUT_SECONDS:30}
+
+  rag:
+    chunk-size-tokens: ${RAG_CHUNK_SIZE_TOKENS:400}
+    chunk-overlap-tokens: ${RAG_CHUNK_OVERLAP_TOKENS:40}
+    max-results: ${RAG_MAX_RESULTS:5}
+    min-score: ${RAG_MIN_SCORE:0.4}
+
+  progress:
+    min-attempts-for-classification: ${PROGRESS_MIN_ATTEMPTS:5}
+    weak-accuracy-threshold: ${PROGRESS_WEAK_THRESHOLD:0.6}
+    recency-weight: ${PROGRESS_RECENCY_WEIGHT:0.4}
+    similarity-tolerance: ${PROGRESS_SIMILARITY_TOLERANCE:0.05}
+
+  audio:
+    api-key: ${OPENAI_API_KEY:test-placeholder-key}
+    model: ${WHISPER_MODEL:whisper-1}
+    max-file-size-bytes: ${AUDIO_MAX_FILE_SIZE_BYTES:10485760}
+    max-duration-seconds: ${AUDIO_MAX_DURATION_SECONDS:120}
+    timeout-seconds: ${AUDIO_TIMEOUT_SECONDS:30}
+    max-retries: ${AUDIO_MAX_RETRIES:2}
+    persist-recordings: ${AUDIO_PERSIST_RECORDINGS:false}
+    recordings-directory: ${AUDIO_RECORDINGS_DIRECTORY:./data/audio-recordings-test}
+    temp-directory: ${AUDIO_TEMP_DIRECTORY:}

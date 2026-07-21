@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Study Buddy</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="app-header">
+    <h1>Study Buddy</h1>
+    <p class="app-subtitle">Upload your course notes, ask grounded questions, and generate flashcards.</p>
+  </header>
+
+  <main id="main-content">
+
+    <!-- ============ 1. Document upload ============ -->
+    <section class="card" aria-labelledby="upload-heading">
+      <h2 id="upload-heading">Upload course notes</h2>
+      <p class="section-hint">PDF, TXT or Markdown files are supported.</p>
+
+      <form id="upload-form" novalidate>
+        <div class="field">
+          <label for="upload-file">Course notes file</label>
+          <input type="file" id="upload-file" name="file" accept=".pdf,.txt,.md,.markdown" required />
+        </div>
+
+        <div class="field">
+          <label for="upload-topic">Topic <span class="optional">(optional)</span></label>
+          <input type="text" id="upload-topic" name="topic" placeholder="e.g. Spring Boot" maxlength="200" />
+        </div>
+
+        <div id="upload-field-error" class="field-error" role="alert"></div>
+
+        <button type="submit" id="upload-button">Upload</button>
+      </form>
+
+      <div id="upload-status" class="status-region" aria-live="polite"></div>
+    </section>
+
+    <!-- ============ 2. RAG Tutor ============ -->
+    <section class="card" aria-labelledby="tutor-heading">
+      <h2 id="tutor-heading">Ask your tutor</h2>
+      <p class="section-hint">Answers are grounded strictly in your uploaded course notes.</p>
+
+      <form id="tutor-form" novalidate>
+        <div class="field">
+          <label for="tutor-question">Your question</label>
+          <textarea id="tutor-question" name="question" rows="3" required
+            placeholder="e.g. Explain dependency injection"></textarea>
+        </div>
+
+        <!-- ============ Optional voice input ============ -->
+        <div class="voice-input" aria-live="polite">
+          <button type="button" id="voice-record-button" class="secondary" aria-pressed="false">
+            <span aria-hidden="true">&#127908;</span> Record voice question
+          </button>
+
+          <div id="voice-recording-state" class="voice-status voice-status-recording" hidden>
+            <span class="voice-recording-dot" aria-hidden="true"></span>
+            Recording&hellip; <span id="voice-timer">0:00</span>
+            <button type="button" id="voice-stop-button">Stop</button>
+          </div>
+
+          <div id="voice-review-state" class="voice-status" hidden>
+            <audio id="voice-review-player" controls></audio>
+            <div class="voice-review-actions">
+              <button type="button" id="voice-use-button">Use this recording</button>
+              <button type="button" id="voice-discard-button" class="secondary">Discard</button>
+            </div>
+          </div>
+
+          <div id="voice-uploading-state" class="voice-status" hidden>
+            <span class="spinner" aria-hidden="true"></span> Transcribing&hellip;
+          </div>
+
+          <div id="voice-error" class="field-error" role="alert"></div>
+        </div>
+
+        <div class="field">
+          <label for="tutor-topic">Topic filter <span class="optional">(optional)</span></label>
+          <input type="text" id="tutor-topic" name="topic" placeholder="e.g. Spring Boot" maxlength="200" />
+        </div>
+
+        <div id="tutor-field-error" class="field-error" role="alert"></div>
+
+        <button type="submit" id="tutor-button">Ask</button>
+      </form>
+
+      <div id="tutor-loading" class="loading-region" aria-live="polite" hidden>
+        <span class="spinner" aria-hidden="true"></span> Thinking&hellip;
+      </div>
+
+      <div id="tutor-error" class="status-region status-error" role="alert" hidden></div>
+
+      <div id="tutor-result" hidden>
+        <div class="answer-block">
+          <span id="tutor-confidence" class="confidence-badge"></span>
+          <p id="tutor-answer" class="answer-text"></p>
+        </div>
+
+        <details id="tutor-sources" class="sources-block">
+          <summary id="tutor-sources-summary">Sources</summary>
+          <ul id="tutor-sources-list" class="sources-list"></ul>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ 3. Flashcard generator ============ -->
+    <section class="card" aria-labelledby="flashcard-heading">
+      <h2 id="flashcard-heading">Generate flashcards</h2>
+      <p class="section-hint">Flashcards are generated only from topics covered in your uploaded notes.</p>
+
+      <form id="flashcard-form" novalidate>
+        <div class="field">
+          <label for="flashcard-topic">Topic</label>
+          <input type="text" id="flashcard-topic" name="topic" placeholder="e.g. RAG" maxlength="200" required />
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="flashcard-count">Number of cards</label>
+            <input type="number" id="flashcard-count" name="count" min="1" max="20" value="5" required />
+          </div>
+
+          <div class="field">
+            <label for="flashcard-difficulty">Difficulty</label>
+            <select id="flashcard-difficulty" name="difficulty">
+              <option value="EASY">Easy</option>
+              <option value="MEDIUM" selected>Medium</option>
+              <option value="HARD">Hard</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="flashcard-field-error" class="field-error" role="alert"></div>
+
+        <button type="submit" id="flashcard-button">Generate</button>
+      </form>
+
+      <div id="flashcard-loading" class="loading-region" aria-live="polite" hidden>
+        <span class="spinner" aria-hidden="true"></span> Generating flashcards&hellip;
+      </div>
+
+      <div id="flashcard-error" class="status-region status-error" role="alert" hidden></div>
+
+      <div id="flashcard-viewer" class="flashcard-viewer" hidden>
+        <button type="button" id="flashcard-card" class="flashcard" aria-pressed="false">
+          <span class="flashcard-inner">
+            <span class="flashcard-face flashcard-front">
+              <span class="flashcard-label">Question</span>
+              <span id="flashcard-question-text" class="flashcard-text"></span>
+            </span>
+            <span class="flashcard-face flashcard-back">
+              <span class="flashcard-label">Answer</span>
+              <span id="flashcard-answer-text" class="flashcard-text"></span>
+            </span>
+          </span>
+        </button>
+        <p class="flashcard-hint">Click the card, or press Enter/Space, to flip it.</p>
+
+        <div class="flashcard-nav">
+          <button type="button" id="flashcard-prev">&larr; Previous</button>
+          <span id="flashcard-position" class="flashcard-position" aria-live="polite"></span>
+          <button type="button" id="flashcard-next">Next &rarr;</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 4. Quiz ============ -->
+    <section class="card" aria-labelledby="quiz-heading">
+      <h2 id="quiz-heading">Take a quiz</h2>
+      <p class="section-hint">Questions are grounded in your uploaded course notes. Correct answers are revealed only after you submit.</p>
+
+      <form id="quiz-form" novalidate>
+        <div class="field">
+          <label for="quiz-topic">Topic</label>
+          <input type="text" id="quiz-topic" name="topic" placeholder="e.g. RAG" maxlength="200" required />
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="quiz-count">Number of questions</label>
+            <input type="number" id="quiz-count" name="count" min="1" max="20" value="5" required />
+          </div>
+
+          <div class="field">
+            <label for="quiz-difficulty">Difficulty</label>
+            <select id="quiz-difficulty" name="difficulty">
+              <option value="EASY">Easy</option>
+              <option value="MEDIUM" selected>Medium</option>
+              <option value="HARD">Hard</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="quiz-field-error" class="field-error" role="alert"></div>
+
+        <button type="submit" id="quiz-generate-button">Generate quiz</button>
+      </form>
+
+      <div id="quiz-loading" class="loading-region" aria-live="polite" hidden>
+        <span class="spinner" aria-hidden="true"></span> Generating quiz&hellip;
+      </div>
+
+      <div id="quiz-error" class="status-region status-error" role="alert" hidden></div>
+
+      <div id="quiz-questions-region" hidden>
+        <ol id="quiz-questions-list" class="quiz-questions-list"></ol>
+        <div id="quiz-submit-error" class="field-error" role="alert"></div>
+        <button type="button" id="quiz-submit-button">Submit answers</button>
+      </div>
+
+      <div id="quiz-submitting" class="loading-region" aria-live="polite" hidden>
+        <span class="spinner" aria-hidden="true"></span> Submitting&hellip;
+      </div>
+
+      <div id="quiz-results-region" hidden>
+        <p id="quiz-score-summary" class="quiz-score-summary"></p>
+        <ol id="quiz-results-list" class="quiz-questions-list"></ol>
+        <button type="button" id="quiz-retry-button" class="secondary">Take another quiz</button>
+      </div>
+    </section>
+
+    <!-- ============ 5. Progress / weak topics ============ -->
+    <section class="card" aria-labelledby="progress-heading">
+      <h2 id="progress-heading">Your progress</h2>
+      <p class="section-hint">
+        Weak topics are based on recency-weighted quiz accuracy over at least a
+        few attempts (take quizzes above to build up history).
+      </p>
+
+      <button type="button" id="progress-refresh-button">Refresh</button>
+
+      <div id="progress-loading" class="loading-region" aria-live="polite" hidden>
+        <span class="spinner" aria-hidden="true"></span> Loading progress&hellip;
+      </div>
+
+      <div id="progress-error" class="status-region status-error" role="alert" hidden></div>
+
+      <div id="progress-content" hidden>
+        <div id="progress-recommendation" class="recommendation-block" hidden></div>
+
+        <table class="progress-table">
+          <thead>
+            <tr>
+              <th scope="col">Topic</th>
+              <th scope="col">Accuracy</th>
+              <th scope="col">Questions</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody id="progress-topics-body"></tbody>
+        </table>
+
+        <p id="progress-empty" class="section-hint" hidden>
+          No quiz history yet &mdash; take a quiz to see progress here.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>Study Buddy &mdash; grounded answers and flashcards from your own course notes.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

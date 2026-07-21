@@ -1,0 +1,78 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: study-buddy-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-study_buddy}
+      POSTGRES_USER: ${DB_USERNAME:-study_buddy}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-study_buddy}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - study-buddy-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-study_buddy} -d ${DB_NAME:-study_buddy}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: study-buddy-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-study_buddy}
+      DB_USERNAME: ${DB_USERNAME:-study_buddy}
+      DB_PASSWORD: ${DB_PASSWORD:-study_buddy}
+      SERVER_PORT: 8080
+
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY must be set in .env}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5}
+      ANTHROPIC_TEMPERATURE: ${ANTHROPIC_TEMPERATURE:-}
+      ANTHROPIC_MAX_TOKENS: ${ANTHROPIC_MAX_TOKENS:-1024}
+      ANTHROPIC_TIMEOUT_SECONDS: ${ANTHROPIC_TIMEOUT_SECONDS:-30}
+
+      RAG_CHUNK_SIZE_TOKENS: ${RAG_CHUNK_SIZE_TOKENS:-400}
+      RAG_CHUNK_OVERLAP_TOKENS: ${RAG_CHUNK_OVERLAP_TOKENS:-40}
+      RAG_MAX_RESULTS: ${RAG_MAX_RESULTS:-5}
+      RAG_MIN_SCORE: ${RAG_MIN_SCORE:-0.4}
+
+      PROGRESS_MIN_ATTEMPTS: ${PROGRESS_MIN_ATTEMPTS:-5}
+      PROGRESS_WEAK_THRESHOLD: ${PROGRESS_WEAK_THRESHOLD:-0.6}
+      PROGRESS_RECENCY_WEIGHT: ${PROGRESS_RECENCY_WEIGHT:-0.4}
+      PROGRESS_SIMILARITY_TOLERANCE: ${PROGRESS_SIMILARITY_TOLERANCE:-0.05}
+
+      MCP_API_KEY: ${MCP_API_KEY:-}
+
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      WHISPER_MODEL: ${WHISPER_MODEL:-whisper-1}
+      AUDIO_MAX_FILE_SIZE_BYTES: ${AUDIO_MAX_FILE_SIZE_BYTES:-10485760}
+      AUDIO_MAX_DURATION_SECONDS: ${AUDIO_MAX_DURATION_SECONDS:-120}
+      AUDIO_TIMEOUT_SECONDS: ${AUDIO_TIMEOUT_SECONDS:-30}
+      AUDIO_MAX_RETRIES: ${AUDIO_MAX_RETRIES:-2}
+      AUDIO_PERSIST_RECORDINGS: ${AUDIO_PERSIST_RECORDINGS:-false}
+      AUDIO_RECORDINGS_DIRECTORY: ${AUDIO_RECORDINGS_DIRECTORY:-/app/data/audio-recordings}
+      AUDIO_TEMP_DIRECTORY: ${AUDIO_TEMP_DIRECTORY:-}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    volumes:
+      - study-buddy-audio-data:/app/data/audio-recordings
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+
+volumes:
+  study-buddy-postgres-data:
+  study-buddy-audio-data:

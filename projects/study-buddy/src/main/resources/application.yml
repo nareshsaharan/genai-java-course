@@ -1,0 +1,107 @@
+spring:
+  application:
+    name: study-buddy
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:study_buddy}
+    username: ${DB_USERNAME:study_buddy}
+    password: ${DB_PASSWORD:study_buddy}
+    driver-class-name: org.postgresql.Driver
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+  ai:
+    mcp:
+      server:
+        # Disabled by default — the MCP endpoint only turns on under the
+        # "mcp" Spring profile (application-mcp.yml sets this true), so a
+        # plain REST-only run never exposes it.
+        enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      # "always" is a deliberate choice for this course project, which has no
+      # authentication layer — "when-authorized" would hide DB health details
+      # from every caller since there's no principal to authorize. A real
+      # deployment with Spring Security should use "when-authorized" instead.
+      show-details: always
+  health:
+    db:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  level:
+    root: INFO
+    com.studybuddy: DEBUG
+
+# Custom application settings, bound to the @ConfigurationProperties records
+# in com.studybuddy.config.properties. Kept separate from spring.datasource.*
+# because the pgvector embedding store is configured with discrete
+# host/port/database/user/password/table fields, not a JDBC URL.
+studybuddy:
+  database:
+    host: ${DB_HOST:localhost}
+    port: ${DB_PORT:5432}
+    database: ${DB_NAME:study_buddy}
+    username: ${DB_USERNAME:study_buddy}
+    password: ${DB_PASSWORD:study_buddy}
+    vector-table: course_chunks
+    vector-dimension: 384
+
+  claude:
+    api-key: ${ANTHROPIC_API_KEY:}
+    model: ${ANTHROPIC_MODEL:claude-sonnet-5}
+    # Left unset by default: some Claude models reject the request if
+    # `temperature` is sent at all. Only set ANTHROPIC_TEMPERATURE if your
+    # configured model supports it.
+    temperature: ${ANTHROPIC_TEMPERATURE:}
+    max-tokens: ${ANTHROPIC_MAX_TOKENS:1024}
+    timeout-seconds: ${ANTHROPIC_TIMEOUT_SECONDS:30}
+
+  rag:
+    chunk-size-tokens: ${RAG_CHUNK_SIZE_TOKENS:400}
+    chunk-overlap-tokens: ${RAG_CHUNK_OVERLAP_TOKENS:40}
+    max-results: ${RAG_MAX_RESULTS:5}
+    min-score: ${RAG_MIN_SCORE:0.4}
+
+  progress:
+    min-attempts-for-classification: ${PROGRESS_MIN_ATTEMPTS:5}
+    weak-accuracy-threshold: ${PROGRESS_WEAK_THRESHOLD:0.6}
+    recency-weight: ${PROGRESS_RECENCY_WEIGHT:0.4}
+    similarity-tolerance: ${PROGRESS_SIMILARITY_TOLERANCE:0.05}
+
+  # Only meaningful when the "mcp" profile is active (see application-mcp.yml
+  # and McpApiKeyFilter). Declared here too so it always binds cleanly.
+  mcp:
+    api-key: ${MCP_API_KEY:}
+
+  # Optional voice input (Whisper transcription via OpenAI). apiKey is left
+  # blank by default — the whole feature degrades to a clean 503 on
+  # /api/audio/transcribe if OPENAI_API_KEY isn't set, the app still starts
+  # and every other feature works normally.
+  audio:
+    api-key: ${OPENAI_API_KEY:}
+    model: ${WHISPER_MODEL:whisper-1}
+    max-file-size-bytes: ${AUDIO_MAX_FILE_SIZE_BYTES:10485760}
+    max-duration-seconds: ${AUDIO_MAX_DURATION_SECONDS:120}
+    timeout-seconds: ${AUDIO_TIMEOUT_SECONDS:30}
+    max-retries: ${AUDIO_MAX_RETRIES:2}
+    persist-recordings: ${AUDIO_PERSIST_RECORDINGS:false}
+    recordings-directory: ${AUDIO_RECORDINGS_DIRECTORY:./data/audio-recordings}
+    temp-directory: ${AUDIO_TEMP_DIRECTORY:}

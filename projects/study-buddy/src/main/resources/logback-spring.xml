@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!--
+      Structured (JSON) console logging. Each log line is one JSON object;
+      MDC entries — in particular "requestId", set by CorrelationIdFilter —
+      are included automatically, so every line written while handling a
+      request can be correlated by that id without passing it around
+      explicitly. Never log uploaded document content, questions/answers,
+      or API keys/secrets: see CLAUDE.md-equivalent guidance in the
+      services themselves (DocumentIngestionService, TutorChatService,
+      FlashcardService) for what is and isn't logged.
+    -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>requestId</includeMdcKeyName>
+            <customFields>{"application":"study-buddy"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- Human-readable console output for local development -->
+    <appender name="PLAIN_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level [%X{requestId}] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <springProfile name="!local &amp; !test">
+        <root level="INFO">
+            <appender-ref ref="JSON_CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="local,test">
+        <root level="INFO">
+            <appender-ref ref="PLAIN_CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <logger name="com.studybuddy" level="DEBUG"/>
+
+</configuration>

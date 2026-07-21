@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- ── Project coordinates ── -->
+  <groupId>com.studybuddy</groupId>
+  <artifactId>study-buddy</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>study-buddy</name>
+  <description>Capstone: AI-grounded study assistant (RAG tutor chat, flashcards, quizzes,
+    progress tracking) built with Spring Boot, LangChain4j, Claude and pgvector</description>
+
+  <!-- ── Inherit Spring Boot defaults (dependency versions, plugin config) ──
+       3.5.16 is the final GA release of the Spring Boot 3.x line (verified
+       against Maven Central metadata as of this writing). -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.16</version>
+    <relativePath/>
+  </parent>
+
+  <properties>
+    <java.version>21</java.version>
+    <!-- Check https://central.sonatype.com/artifact/dev.langchain4j/langchain4j-bom
+         for newer releases. 1.17.2 is the latest GA (non-beta) as of this writing. -->
+    <langchain4j.version>1.17.2</langchain4j.version>
+    <!-- Check https://central.sonatype.com/artifact/org.springframework.ai/spring-ai-bom
+         for newer releases. 1.1.7 is the latest 1.x GA as of this writing — the 1.x line
+         targets Spring Boot 3.x (matches this project); Spring AI 2.0 hard-requires
+         Spring Boot 4 and is deliberately NOT used here. -->
+    <spring-ai.version>1.1.7</spring-ai.version>
+  </properties>
+
+  <!-- The LangChain4j BOM pins every dev.langchain4j:* module (core, Anthropic
+       chat model, local embedding model, pgvector store, ...) to versions
+       tested to work together, so only one version number is maintained
+       for the whole family. The Spring AI BOM does the same for the MCP
+       server starter used by com.studybuddy.mcp. -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>dev.langchain4j</groupId>
+        <artifactId>langchain4j-bom</artifactId>
+        <version>${langchain4j.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-bom</artifactId>
+        <version>${spring-ai.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+
+    <!-- Spring MVC: @RestController, @GetMapping/@PostMapping, embedded web server -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- Bean Validation for request DTOs and @ConfigurationProperties records -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- Actuator: /actuator/health, /actuator/info for container health checks -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- JDBC support (DataSource + JdbcTemplate) for Flyway and our own
+         repository code. Full JPA is deliberately not pulled in yet: the
+         documents/course_chunks tables are written through a hand-rolled
+         JdbcTemplate repository (using com.pgvector.PGvector for the
+         VECTOR(384) column, transitively provided by langchain4j-pgvector
+         below), not through Hibernate. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+
+    <!-- PostgreSQL JDBC driver. Compile scope (not just runtime): CourseChunkRepository
+         directly references com.pgvector.PGvector, which extends org.postgresql.util.PGobject. -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+    </dependency>
+
+    <!-- Flyway core + the PostgreSQL-specific module (split out as its own
+         artifact since Flyway 10, required for Flyway to support Postgres). -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+
+    <!-- LangChain4j core: Document, DocumentSplitter, EmbeddingModel,
+         EmbeddingStore, ChatModel, AiServices — every RAG building block
+         this project uses. -->
+    <dependency>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j</artifactId>
+    </dependency>
+
+    <!-- Anthropic (Claude) chat model integration -->
+    <dependency>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j-anthropic</artifactId>
+    </dependency>
+
+    <!-- Local embedding model (all-MiniLM-L6-v2, 384 dimensions), runs
+         fully in-process via ONNX runtime bundled in the jar — no API key,
+         no network call for embeddings. -->
+    <dependency>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>
+    </dependency>
+
+    <!-- pgvector-backed EmbeddingStore. Also pulls in com.pgvector:pgvector,
+         whose PGvector JDBC type we use directly in CourseChunkRepository. -->
+    <dependency>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j-pgvector</artifactId>
+    </dependency>
+
+    <!-- PDF text extraction -->
+    <dependency>
+      <groupId>org.apache.pdfbox</groupId>
+      <artifactId>pdfbox</artifactId>
+      <version>3.0.8</version>
+    </dependency>
+
+    <!-- MCP server (HTTP/Streamable-HTTP transport, layered onto the same
+         Spring MVC DispatcherServlet as our REST controllers) — exposes
+         com.studybuddy.mcp.StudyBuddyMcpTools as MCP tools. Only activated
+         under the "mcp" Spring profile (spring.ai.mcp.server.enabled is
+         false by default, true in application-mcp.yml) — see McpToolConfig
+         and McpApiKeyFilter. -->
+    <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
+    </dependency>
+
+    <!-- Structured (JSON) console logging — see logback-spring.xml. Encodes
+         each log line as one JSON object, including MDC entries (requestId)
+         automatically, so logs are machine-parseable and correlate by request. -->
+    <dependency>
+      <groupId>net.logstash.logback</groupId>
+      <artifactId>logstash-logback-encoder</artifactId>
+      <version>9.0</version>
+    </dependency>
+
+    <!-- Tests -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Testcontainers: spins up a real pgvector/pgvector Postgres for the
+         document-ingestion integration test. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      Deliberately NOT added yet (see README):
+        - lombok                          -> plain getters/setters, matches this repo's convention
+        - langchain4j-spring-boot-starter -> still beta; beans are wired by hand in config/
+        - spring-boot-starter-data-jpa    -> added later alongside quiz/progress entities
+    -->
+
+  </dependencies>
+
+  <!-- No explicit Testcontainers version needed: spring-boot-starter-parent
+       already manages org.testcontainers:testcontainers-bom. -->
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

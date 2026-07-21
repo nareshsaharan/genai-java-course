@@ -1,0 +1,33 @@
+# Activated via --spring.profiles.active=mcp (combine with other profiles as
+# needed, e.g. "mcp" alone already includes the base application.yml). Turns
+# on the MCP endpoint at POST /mcp (Streamable HTTP transport) alongside the
+# normal REST API — same running application, same database, same service
+# layer. Requires MCP_API_KEY to be set (see McpApiKeyFilter) or every MCP
+# request is rejected with 503.
+spring:
+  ai:
+    mcp:
+      server:
+        enabled: true
+        protocol: STREAMABLE
+        name: study-buddy-mcp-server
+        version: 1.0.0
+        instructions: >
+          Study Buddy exposes quiz-progress tools for a student's course-note study
+          data: weak-topic lookup, per-topic progress, recording quiz results, next-topic
+          recommendation, and study-plan generation. Use getTopicProgress for questions
+          about one named topic; getWeakTopics for a broad "what am I bad at" question;
+          recommendNextTopic for "what should I study next"; generateStudyPlan for a
+          broader "help me plan my studying" request. saveQuizResult mutates data — only
+          call it after the student reports a real completed quiz result.
+        streamable-http:
+          mcp-endpoint: /mcp
+        capabilities:
+          tool: true
+          resource: false
+          prompt: false
+          completion: false
+
+studybuddy:
+  mcp:
+    api-key: ${MCP_API_KEY:}
