@@ -41,25 +41,94 @@
       <h2 id="settings-heading">API Keys</h2>
       <p class="section-hint">Keys are stored on this server only, verified against the real provider before saving, and never sent back to your browser.</p>
 
-      <div class="settings-key-panel">
-        <h3>Claude (Anthropic)</h3>
-        <div class="settings-status">
-          <span class="classification-badge" id="settings-anthropic-badge">Checking&hellip;</span>
-          <span id="settings-anthropic-masked"></span>
-        </div>
-        <div class="settings-key-row">
-          <div class="settings-input-wrapper">
-            <input type="password" id="settings-anthropic-input" placeholder="sk-ant-..." autocomplete="off" />
-            <button type="button" class="settings-show-toggle" id="settings-anthropic-show" aria-label="Show key">👁</button>
-          </div>
-          <button type="button" id="settings-anthropic-save">Save &amp; Verify</button>
-          <button type="button" id="settings-anthropic-clear" class="secondary" hidden>Clear</button>
-        </div>
-        <div id="settings-anthropic-message" class="field-error" role="alert"></div>
+      <div class="settings-provider-select">
+        <label for="settings-chat-provider-select">Chat provider <span class="optional">(powers Tutor, Flashcards, Quiz)</span></label>
+        <select id="settings-chat-provider-select">
+          <option value="claude">Claude (Anthropic)</option>
+          <option value="groq">Groq (free tier)</option>
+          <option value="openrouter">OpenRouter (free-tier models)</option>
+          <option value="gemini">Gemini (Google AI, free tier)</option>
+        </select>
+      </div>
+
+      <div class="settings-provider-select">
+        <label for="settings-embedding-provider-select">Embedding provider <span class="optional">(powers document search)</span></label>
+        <select id="settings-embedding-provider-select">
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Gemini (Google AI, free tier)</option>
+        </select>
       </div>
 
       <div class="settings-key-panel">
-        <h3>Whisper (OpenAI) <span class="optional">(optional &mdash; for voice input)</span></h3>
+        <h3>Claude (Anthropic)</h3>
+        <div class="settings-status">
+          <span class="classification-badge" id="settings-claude-badge">Checking&hellip;</span>
+          <span id="settings-claude-masked"></span>
+        </div>
+        <div class="settings-key-row">
+          <div class="settings-input-wrapper">
+            <input type="password" id="settings-claude-input" placeholder="sk-ant-..." autocomplete="off" />
+            <button type="button" class="settings-show-toggle" id="settings-claude-show" aria-label="Show key">👁</button>
+          </div>
+          <button type="button" id="settings-claude-save">Save &amp; Verify</button>
+          <button type="button" id="settings-claude-clear" class="secondary" hidden>Clear</button>
+        </div>
+        <div id="settings-claude-message" class="field-error" role="alert"></div>
+      </div>
+
+      <div class="settings-key-panel">
+        <h3>Groq <span class="optional">(free tier)</span></h3>
+        <div class="settings-status">
+          <span class="classification-badge" id="settings-groq-badge">Checking&hellip;</span>
+          <span id="settings-groq-masked"></span>
+        </div>
+        <div class="settings-key-row">
+          <div class="settings-input-wrapper">
+            <input type="password" id="settings-groq-input" placeholder="gsk_..." autocomplete="off" />
+            <button type="button" class="settings-show-toggle" id="settings-groq-show" aria-label="Show key">👁</button>
+          </div>
+          <button type="button" id="settings-groq-save">Save &amp; Verify</button>
+          <button type="button" id="settings-groq-clear" class="secondary" hidden>Clear</button>
+        </div>
+        <div id="settings-groq-message" class="field-error" role="alert"></div>
+      </div>
+
+      <div class="settings-key-panel">
+        <h3>OpenRouter <span class="optional">(free-tier models)</span></h3>
+        <div class="settings-status">
+          <span class="classification-badge" id="settings-openrouter-badge">Checking&hellip;</span>
+          <span id="settings-openrouter-masked"></span>
+        </div>
+        <div class="settings-key-row">
+          <div class="settings-input-wrapper">
+            <input type="password" id="settings-openrouter-input" placeholder="sk-or-v1-..." autocomplete="off" />
+            <button type="button" class="settings-show-toggle" id="settings-openrouter-show" aria-label="Show key">👁</button>
+          </div>
+          <button type="button" id="settings-openrouter-save">Save &amp; Verify</button>
+          <button type="button" id="settings-openrouter-clear" class="secondary" hidden>Clear</button>
+        </div>
+        <div id="settings-openrouter-message" class="field-error" role="alert"></div>
+      </div>
+
+      <div class="settings-key-panel">
+        <h3>Gemini <span class="optional">(Google AI, free tier &mdash; powers chat and/or embeddings)</span></h3>
+        <div class="settings-status">
+          <span class="classification-badge" id="settings-gemini-badge">Checking&hellip;</span>
+          <span id="settings-gemini-masked"></span>
+        </div>
+        <div class="settings-key-row">
+          <div class="settings-input-wrapper">
+            <input type="password" id="settings-gemini-input" placeholder="AIza..." autocomplete="off" />
+            <button type="button" class="settings-show-toggle" id="settings-gemini-show" aria-label="Show key">👁</button>
+          </div>
+          <button type="button" id="settings-gemini-save">Save &amp; Verify</button>
+          <button type="button" id="settings-gemini-clear" class="secondary" hidden>Clear</button>
+        </div>
+        <div id="settings-gemini-message" class="field-error" role="alert"></div>
+      </div>
+
+      <div class="settings-key-panel">
+        <h3>OpenAI <span class="optional">(voice input, and embeddings if selected above)</span></h3>
         <div class="settings-status">
           <span class="classification-badge" id="settings-openai-badge">Checking&hellip;</span>
           <span id="settings-openai-masked"></span>
@@ -104,7 +173,7 @@
     <section class="card" id="tab-panel-tutor" aria-labelledby="tutor-heading" hidden>
       <h2 id="tutor-heading">Ask your tutor</h2>
       <div id="tutor-unconfigured-banner" class="status-region status-info" role="status" hidden>
-        Demo Mode: no Claude API key is configured, so answers are canned examples, not real AI. Add your key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab for real answers.
+        Demo Mode: no API key is configured for the selected chat provider, so answers are canned examples, not real AI. Add your key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab for real answers.
       </div>
       <p class="section-hint">Answers are grounded strictly in your uploaded course notes.</p>
 
@@ -178,7 +247,7 @@
     <section class="card" id="tab-panel-flashcard" aria-labelledby="flashcard-heading" hidden>
       <h2 id="flashcard-heading">Generate flashcards</h2>
       <div id="flashcard-unconfigured-banner" class="status-region status-info" role="status" hidden>
-        Demo Mode: no Claude API key is configured, so these are example flashcards, not generated from your document. Add your key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab for real ones.
+        Demo Mode: no API key is configured for the selected chat provider, so these are example flashcards, not generated from your document. Add your key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab for real ones.
       </div>
       <p class="section-hint">Flashcards are generated only from topics covered in your uploaded notes.</p>
 
@@ -242,7 +311,7 @@
     <section class="card" id="tab-panel-quiz" aria-labelledby="quiz-heading" hidden>
       <h2 id="quiz-heading">Take a quiz</h2>
       <div id="quiz-unconfigured-banner" class="status-region status-info" role="status" hidden>
-        Demo Mode: no Claude API key is configured, so this is an example quiz, not generated from your document. Add your key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab for a real one.
+        Demo Mode: no API key is configured for the selected chat provider, so this is an example quiz, not generated from your document. Add your key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab for a real one.
       </div>
       <p class="section-hint">Questions are grounded in your uploaded course notes. Correct answers are revealed only after you submit.</p>
 

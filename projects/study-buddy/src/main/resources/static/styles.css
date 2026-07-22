@@ -158,16 +158,21 @@ body {
   display: inline;
 }
 
+.settings-provider-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+
+.settings-provider-select:first-of-type {
+  margin-top: 1.25rem;
+}
+
 .settings-key-panel {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--color-border);
-}
-
-.settings-key-panel:first-of-type {
-  margin-top: 1rem;
-  padding-top: 0;
-  border-top: none;
 }
 
 .settings-status {

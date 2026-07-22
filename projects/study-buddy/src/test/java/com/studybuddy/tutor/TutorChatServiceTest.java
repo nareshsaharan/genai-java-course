@@ -50,7 +50,7 @@ class TutorChatServiceTest {
             new TutorChatService(embeddingModel, searchRepository, tutorAssistant, ragProperties, metrics, secrets);
 
     {
-        when(secrets.getOpenAiKey()).thenReturn("sk-test-key-configured");
+        when(secrets.getActiveEmbeddingKey()).thenReturn("sk-test-key-configured");
     }
 
     private void stubEmbedding() {
@@ -156,7 +156,7 @@ class TutorChatServiceTest {
 
     @Test
     void mockModeDropsTheSimilarityFloorToZeroWhenNoOpenAiKeyIsConfigured() {
-        when(secrets.getOpenAiKey()).thenReturn(null);
+        when(secrets.getActiveEmbeddingKey()).thenReturn(null);
         stubEmbedding();
         when(searchRepository.search(any(), any(), anyInt(), anyDouble())).thenReturn(List.of());
 

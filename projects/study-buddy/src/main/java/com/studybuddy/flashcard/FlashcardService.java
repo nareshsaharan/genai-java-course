@@ -126,7 +126,7 @@ public class FlashcardService {
 
     /** See {@code TutorChatService.effectiveMinScore()} — same Mock Mode rationale. */
     private double effectiveMinScore() {
-        return StringUtils.hasText(secrets.getOpenAiKey()) ? ragProperties.minScore() : 0.0;
+        return StringUtils.hasText(secrets.getActiveEmbeddingKey()) ? ragProperties.minScore() : 0.0;
     }
 
     private List<GeneratedFlashcard> generateCards(String prompt) {

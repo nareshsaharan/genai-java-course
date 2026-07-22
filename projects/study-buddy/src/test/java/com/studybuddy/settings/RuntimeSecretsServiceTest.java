@@ -20,8 +20,8 @@ class RuntimeSecretsServiceTest {
     void startsUnconfiguredInMockMode() {
         RuntimeSecretsService service = new RuntimeSecretsService();
 
-        assertThat(service.getAnthropicKey()).isNull();
-        RuntimeSecretsService.KeyStatus status = service.getAnthropicStatus();
+        assertThat(service.getClaudeKey()).isNull();
+        RuntimeSecretsService.KeyStatus status = service.getClaudeStatus();
         assertThat(status.configured()).isFalse();
         assertThat(status.source()).isEqualTo("mock");
         assertThat(status.maskedKey()).isNull();
@@ -31,30 +31,30 @@ class RuntimeSecretsServiceTest {
     void savingAKeyMakesItActiveImmediately() {
         RuntimeSecretsService service = new RuntimeSecretsService();
 
-        service.setAnthropicKey("sk-ant-uikey6789012");
+        service.setClaudeKey("sk-ant-uikey6789012");
 
-        assertThat(service.getAnthropicKey()).isEqualTo("sk-ant-uikey6789012");
-        assertThat(service.getAnthropicStatus().source()).isEqualTo("saved");
-        assertThat(service.getAnthropicStatus().configured()).isTrue();
+        assertThat(service.getClaudeKey()).isEqualTo("sk-ant-uikey6789012");
+        assertThat(service.getClaudeStatus().source()).isEqualTo("saved");
+        assertThat(service.getClaudeStatus().configured()).isTrue();
     }
 
     @Test
     void clearingASavedKeyRevertsToUnconfigured() {
         RuntimeSecretsService service = new RuntimeSecretsService();
-        service.setAnthropicKey("sk-ant-uikey6789012");
+        service.setClaudeKey("sk-ant-uikey6789012");
 
-        service.clearAnthropicKey();
+        service.clearClaudeKey();
 
-        assertThat(service.getAnthropicKey()).isNull();
-        assertThat(service.getAnthropicStatus().configured()).isFalse();
+        assertThat(service.getClaudeKey()).isNull();
+        assertThat(service.getClaudeStatus().configured()).isFalse();
     }
 
     @Test
     void maskedKeyShowsOnlyPrefixAndLastFourCharacters() {
         RuntimeSecretsService service = new RuntimeSecretsService();
-        service.setAnthropicKey("sk-ant-api03-1234567890abcdef");
+        service.setClaudeKey("sk-ant-api03-1234567890abcdef");
 
-        String masked = service.getAnthropicStatus().maskedKey();
+        String masked = service.getClaudeStatus().maskedKey();
 
         assertThat(masked).startsWith("sk-ant");
         assertThat(masked).endsWith("cdef");
@@ -62,14 +62,16 @@ class RuntimeSecretsServiceTest {
     }
 
     @Test
-    void anthropicAndOpenAiKeysAreIndependent() {
+    void allFiveProviderKeysAreIndependent() {
         RuntimeSecretsService service = new RuntimeSecretsService();
 
-        service.setAnthropicKey("sk-ant-uikey6789012");
+        service.setClaudeKey("claude-key");
 
-        assertThat(service.getAnthropicStatus().configured()).isTrue();
+        assertThat(service.getClaudeStatus().configured()).isTrue();
+        assertThat(service.getGroqStatus().configured()).isFalse();
+        assertThat(service.getOpenRouterStatus().configured()).isFalse();
+        assertThat(service.getGeminiStatus().configured()).isFalse();
         assertThat(service.getOpenAiStatus().configured()).isFalse();
-        assertThat(service.getOpenAiKey()).isNull();
     }
 
     @Test
@@ -80,10 +82,49 @@ class RuntimeSecretsServiceTest {
         RuntimeSecretsService sessionA = new RuntimeSecretsService();
         RuntimeSecretsService sessionB = new RuntimeSecretsService();
 
-        sessionA.setAnthropicKey("sk-ant-belongs-to-session-a");
+        sessionA.setClaudeKey("sk-ant-belongs-to-session-a");
 
-        assertThat(sessionA.getAnthropicStatus().configured()).isTrue();
-        assertThat(sessionB.getAnthropicStatus().configured()).isFalse();
-        assertThat(sessionB.getAnthropicKey()).isNull();
+        assertThat(sessionA.getClaudeStatus().configured()).isTrue();
+        assertThat(sessionB.getClaudeStatus().configured()).isFalse();
+        assertThat(sessionB.getClaudeKey()).isNull();
+    }
+
+    @Test
+    void chatProviderDefaultsToClaudeAndSelectsTheMatchingKey() {
+        RuntimeSecretsService service = new RuntimeSecretsService();
+        service.setClaudeKey("claude-key");
+        service.setGroqKey("groq-key");
+
+        assertThat(service.getChatProvider()).isEqualTo(ChatProvider.CLAUDE);
+        assertThat(service.getActiveChatKey()).isEqualTo("claude-key");
+
+        service.setChatProvider(ChatProvider.GROQ);
+
+        assertThat(service.getActiveChatKey()).isEqualTo("groq-key");
+    }
+
+    @Test
+    void embeddingProviderDefaultsToOpenAiAndSelectsTheMatchingKey() {
+        RuntimeSecretsService service = new RuntimeSecretsService();
+        service.setOpenAiKey("openai-key");
+        service.setGeminiKey("gemini-key");
+
+        assertThat(service.getEmbeddingProvider()).isEqualTo(EmbeddingProvider.OPENAI);
+        assertThat(service.getActiveEmbeddingKey()).isEqualTo("openai-key");
+
+        service.setEmbeddingProvider(EmbeddingProvider.GEMINI);
+
+        assertThat(service.getActiveEmbeddingKey()).isEqualTo("gemini-key");
+    }
+
+    @Test
+    void geminiKeyIsSharedBetweenChatAndEmbeddingRoles() {
+        RuntimeSecretsService service = new RuntimeSecretsService();
+        service.setGeminiKey("shared-gemini-key");
+        service.setChatProvider(ChatProvider.GEMINI);
+        service.setEmbeddingProvider(EmbeddingProvider.GEMINI);
+
+        assertThat(service.getActiveChatKey()).isEqualTo("shared-gemini-key");
+        assertThat(service.getActiveEmbeddingKey()).isEqualTo("shared-gemini-key");
     }
 }

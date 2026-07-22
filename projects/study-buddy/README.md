@@ -3,7 +3,9 @@
 An AI-grounded study assistant: upload your own course notes, ask questions
 answered *only* from that material (RAG), generate flashcards and quizzes
 grounded in it, and track weak topics over time. Built as a Spring Boot
-capstone around LangChain4j, Claude (Anthropic), and pgvector.
+capstone around LangChain4j and pgvector, with a choice of chat provider
+(Claude, Groq, OpenRouter, or Gemini) and embedding provider (OpenAI or
+Gemini) — or no key at all, via [Mock Mode](#mock-mode--using-the-app-with-zero-api-keys).
 
 - [Architecture](#architecture)
 - [Stack](#stack)
@@ -12,6 +14,8 @@ capstone around LangChain4j, Claude (Anthropic), and pgvector.
 - [Quick start (local)](#quick-start-local)
 - [Configuration reference](#configuration-reference)
 - [Settings UI (runtime-configurable API keys)](#settings-ui-runtime-configurable-api-keys)
+- [Multi-provider chat & embeddings](#multi-provider-chat--embeddings-free-alternatives-to-claudeopenai)
+- [Mock Mode](#mock-mode--using-the-app-with-zero-api-keys)
 - [Features](#features)
 - [Weak-topic scoring algorithm](#weak-topic-scoring-algorithm)
 - [Observability](#observability)
@@ -98,9 +102,9 @@ sequenceDiagram
 | Concern | Choice |
 |---|---|
 | Language / runtime | Java 21, Spring Boot 3.5.16 |
-| AI orchestration | LangChain4j 1.17.2 (`langchain4j-anthropic`, `langchain4j-open-ai`, `langchain4j-pgvector`) |
-| Chat model | Claude via Anthropic API (`claude-sonnet-5` by default) |
-| Embeddings | OpenAI `text-embedding-3-small`, truncated to 384 dims via the API's own `dimensions` parameter — requires `OPENAI_API_KEY` (see [Settings UI](#settings-ui-runtime-configurable-api-keys)). Originally a local in-process ONNX model (all-MiniLM-L6-v2, no API key needed) — switched after that model's native memory footprint didn't fit in a 512MB container on free-tier PaaS hosts |
+| AI orchestration | LangChain4j 1.17.2 (`langchain4j-anthropic`, `langchain4j-open-ai`, `langchain4j-google-ai-gemini`, `langchain4j-pgvector`) |
+| Chat model | Selectable per session in Settings: Claude (Anthropic, default), Groq, OpenRouter, or Gemini — Groq/OpenRouter ride `langchain4j-open-ai`'s `OpenAiChatModel` pointed at their own OpenAI-compatible endpoint, no separate SDK needed. See [Multi-provider chat & embeddings](#multi-provider-chat--embeddings-free-alternatives-to-claudeopenai) |
+| Embeddings | Selectable per session in Settings: OpenAI `text-embedding-3-small` (default) or Gemini `gemini-embedding-001`, both truncated/configured to 384 dims so the schema never changes. Originally a local in-process ONNX model (all-MiniLM-L6-v2, no API key needed) — switched after that model's native memory footprint didn't fit in a 512MB container on free-tier PaaS hosts |
 | Vector store | PostgreSQL 16/17 + pgvector, hand-rolled `JdbcTemplate` repositories (no JPA, no ORM) |
 | Migrations | Flyway |
 | MCP | Spring AI 1.1.7 MCP server starter (Streamable HTTP), separate profile |
@@ -194,34 +198,54 @@ Every setting is env-var driven with a working local default — see
 | Prefix | Record | Purpose |
 |---|---|---|
 | `studybuddy.database` | `DatabaseProperties` | pgvector store connection (separate from `spring.datasource.*` since the embedding store needs discrete host/port/table fields) |
-| `studybuddy.claude` | `ClaudeProperties` | Anthropic model/timeout config. The `api-key`/`ANTHROPIC_API_KEY` value is no longer read anywhere — every session must configure its own key from the [Settings tab](#settings-ui-runtime-configurable-api-keys) instead (see [`RuntimeSecretsService`](#settings-ui-runtime-configurable-api-keys)) |
+| `studybuddy.claude` | `ClaudeProperties` | Anthropic model/timeout config. The `api-key`/`ANTHROPIC_API_KEY` value is never read — every session configures its own key from the [Settings tab](#settings-ui-runtime-configurable-api-keys) instead (see [`RuntimeSecretsService`](#settings-ui-runtime-configurable-api-keys)) |
+| `studybuddy.groq` | `GroqProperties` | base URL/model/timeout for Groq's OpenAI-compatible chat API (free-tier chat alternative) |
+| `studybuddy.openrouter` | `OpenRouterProperties` | base URL/model/timeout for OpenRouter's OpenAI-compatible chat API (free-tier chat alternative) |
+| `studybuddy.gemini` | `GeminiProperties` | chat model / embedding model / timeout for Google's Gemini API (free-tier chat *and* embeddings alternative) |
 | `studybuddy.rag` | `RagProperties` | chunk size/overlap, retrieval topK/minScore |
 | `studybuddy.progress` | `ProgressProperties` | weak-topic classification thresholds |
 | `studybuddy.mcp` | `McpProperties` | MCP endpoint shared-secret (only read under `--spring.profiles.active=mcp`) |
-| `studybuddy.audio` | `AudioProperties` | optional Whisper transcription — degrades to a clean 503, never blocks startup |
+| `studybuddy.audio` | `AudioProperties` | Whisper voice transcription config — degrades to a clean Mock Mode transcript, never blocks startup |
 
 ---
 
 ## Settings UI (runtime-configurable API keys)
 
-The **Settings** tab (first tab in the UI) lets you paste, verify, and save Claude/OpenAI keys from the browser instead of only through `.env`:
+The **Settings** tab (first tab in the UI) lets you paste, verify, and save each provider's key from the browser instead of only through `.env`, and pick which provider is active for chat and for embeddings:
 
 - **Save & Verify** makes one real, minimal call to the provider with the *submitted* key (never the currently-active one) before saving anything — an invalid key is rejected inline with the provider's exact error message, and the working key stays untouched.
 - Keys are **session-scoped, in-memory only, per browser session** — identified by the standard session cookie, held only in server memory, never written to disk. This app is publicly hosted, so a stranger opening the page must never be able to use, or overwrite, another visitor's key: every new session (including a fresh no-cookie `curl` request) starts fully unconfigured, with **no** environment-variable fallback. Closing the session (or restarting the app) discards the key — each visitor must add their own key from the Settings tab every session.
 - A light/dark theme toggle lives next to the title — light is "Indigo Educational", dark is "Slate Dark-First" (two distinct palettes, not one palette at two brightness levels); the choice is remembered in the browser and defaults to your OS preference on first visit.
 
-Backend pieces: `RuntimeSecretsService` (session-scoped source of truth — see its Javadoc for the `@Scope`/scoped-proxy mechanism), `AnthropicKeyValidator`/`OpenAiKeyValidator` (pre-save verification), `DynamicAnthropicChatModel`/`DynamicOpenAiEmbeddingModel` (rebuild their cached client when the session's key changes, no restart needed), `SettingsController` (`GET`/`PUT`/`DELETE /api/settings/keys/*`) — see [API.md](API.md) for the full request/response shapes.
+Backend pieces: `RuntimeSecretsService` (session-scoped source of truth, holds five provider keys plus the two provider selections — see its Javadoc for the `@Scope`/scoped-proxy mechanism), `AnthropicKeyValidator`/`GroqKeyValidator`/`OpenRouterKeyValidator`/`GeminiKeyValidator`/`OpenAiKeyValidator` (pre-save verification, one per provider), `DynamicChatModel`/`DynamicEmbeddingModel` (rebuild their cached client when the selected provider or its key changes, no restart needed), `SettingsController` (`GET /api/settings/keys`, `PUT`/`DELETE /api/settings/keys/{provider}`, `PUT /api/settings/chat-provider`, `PUT /api/settings/embedding-provider`) — see [API.md](API.md) for the full request/response shapes.
 
 > Testing with `curl`: a browser keeps the same session automatically via its cookie jar, but `curl` doesn't unless you tell it to. Use `-c cookie.txt -b cookie.txt` on every call to simulate one persistent visitor; otherwise each request looks like a brand-new, unconfigured session.
 
 ---
 
+## Multi-provider chat & embeddings (free alternatives to Claude/OpenAI)
+
+Every session independently picks a **chat provider** (powers Tutor/Flashcards/Quiz) and an **embedding provider** (powers document search):
+
+| Role | Options | Free tier? |
+|---|---|---|
+| Chat | Claude (Anthropic, default) · Groq · OpenRouter · Gemini | Groq, OpenRouter (`:free`-suffixed models), and Gemini all have a free tier |
+| Embeddings | OpenAI (default) · Gemini | Gemini has a free tier |
+
+Groq and OpenRouter are both OpenAI-compatible chat completion APIs (same request/response shape as OpenAI, just a different base URL), so `DynamicChatModel` serves them as a plain `OpenAiChatModel` with a custom `baseUrl` — no separate SDK integration needed. Gemini uses LangChain4j's native `langchain4j-google-ai-gemini` integration for both chat (`GoogleAiGeminiChatModel`) and embeddings (`GoogleAiEmbeddingModel`, truncated to 384 dimensions via `outputDimensionality` to match the existing `course_chunks.embedding VECTOR(384)` column) — **one Gemini key powers both roles**, so you can e.g. use Gemini for chat and OpenAI for embeddings, or Gemini for both, independently.
+
+The OpenAI key is separate from the embedding-provider selection: it's always used for Whisper voice transcription regardless of which embedding provider is active, and *additionally* used for embeddings when OpenAI is the selected embedding provider.
+
+Switching either provider (`PUT /api/settings/chat-provider` / `PUT /api/settings/embedding-provider`) takes effect immediately, with no restart — `DynamicChatModel`/`DynamicEmbeddingModel` cache their built client keyed by `(provider, key)`, rebuilding only when either changes.
+
+---
+
 ## Mock Mode — using the app with zero API keys
 
-Every new session starts unconfigured, and **unconfigured is not a broken state**: Tutor, Flashcards, Quiz, document upload, and Voice input all stay fully usable with no Claude or OpenAI key at all, so anyone can explore the whole app before ever pasting a key.
+Every new session starts unconfigured, and **unconfigured is not a broken state**: Tutor, Flashcards, Quiz, document upload, and Voice input all stay fully usable with no API keys at all, so anyone can explore the whole app before ever pasting a key.
 
-- **Chat** (`DynamicAnthropicChatModel`): while no Anthropic key is set, no real Claude call is made — a canned response is returned instead, shaped to match whatever the caller expects (plain text for Tutor, `{"cards": [...]}` JSON for Flashcards, `{"questions": [...]}` JSON for Quiz, so the same downstream parsing/validation code runs unchanged).
-- **Embeddings** (`DynamicOpenAiEmbeddingModel`): while no OpenAI key is set, no real embeddings call is made — each chunk gets a deterministic pseudo-vector hashed from its own text (same text always hashes to the same vector, so re-uploading a document stays idempotent). These vectors aren't semantically meaningful, so the retrieval similarity floor (`studybuddy.rag.min-score`) is dropped to `0` while unconfigured — otherwise a real similarity threshold would reject the random vectors and every question would look like it has "no relevant context," defeating the point of the demo.
+- **Chat** (`DynamicChatModel`): while no key is set for the *selected* chat provider, no real API call is made — a canned response is returned instead, shaped to match whatever the caller expects (plain text for Tutor, `{"cards": [...]}` JSON for Flashcards, `{"questions": [...]}` JSON for Quiz, so the same downstream parsing/validation code runs unchanged).
+- **Embeddings** (`DynamicEmbeddingModel`): while no key is set for the *selected* embedding provider, no real embeddings call is made — each chunk gets a deterministic pseudo-vector hashed from its own text (same text always hashes to the same vector, so re-uploading a document stays idempotent). These vectors aren't semantically meaningful, so the retrieval similarity floor (`studybuddy.rag.min-score`) is dropped to `0` while unconfigured — otherwise a real similarity threshold would reject the random vectors and every question would look like it has "no relevant context," defeating the point of the demo.
 - **Voice input** (`OpenAiWhisperClient`): while no OpenAI key is set, a canned mock transcript is returned instead of calling Whisper.
 - The Settings tab shows **"Demo mode (mock)"** for each unconfigured provider (`KeyStatus.source == "mock"`), and the Tutor/Flashcard/Quiz/Voice tabs show an informational banner explaining the output is canned — none of them disable their buttons, since the feature genuinely still works.
 

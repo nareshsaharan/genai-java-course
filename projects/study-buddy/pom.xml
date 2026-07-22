@@ -122,6 +122,18 @@
       <artifactId>langchain4j-anthropic</artifactId>
     </dependency>
 
+    <!-- Groq and OpenRouter are both OpenAI-compatible chat completion APIs
+         (same request/response shape, just a different base URL), so they're
+         served through langchain4j-open-ai's OpenAiChatModel with a custom
+         baseUrl instead of needing their own SDK modules. -->
+
+    <!-- Google AI Gemini: native chat + embedding models (free tier), used
+         as a free/cheap alternative to Claude (chat) and OpenAI (embeddings). -->
+    <dependency>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j-google-ai-gemini</artifactId>
+    </dependency>
+
     <!-- OpenAI embeddings (text-embedding-3-small, truncated to 384 dims via
          the API's own `dimensions` parameter — keeps the existing VECTOR(384)
          schema unchanged). Originally this project used a local in-process

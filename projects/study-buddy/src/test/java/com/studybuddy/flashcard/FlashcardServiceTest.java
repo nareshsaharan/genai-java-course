@@ -53,7 +53,7 @@ class FlashcardServiceTest {
             embeddingModel, searchRepository, flashcardGenerator, flashcardRepository, ragProperties, metrics, secrets);
 
     {
-        when(secrets.getOpenAiKey()).thenReturn("sk-test-key-configured");
+        when(secrets.getActiveEmbeddingKey()).thenReturn("sk-test-key-configured");
     }
 
     private ChunkSearchResult someChunk() {
@@ -191,7 +191,7 @@ class FlashcardServiceTest {
 
     @Test
     void mockModeDropsTheSimilarityFloorToZeroWhenNoOpenAiKeyIsConfigured() {
-        when(secrets.getOpenAiKey()).thenReturn(null);
+        when(secrets.getActiveEmbeddingKey()).thenReturn(null);
         when(embeddingModel.embed(anyString())).thenReturn(Response.from(Embedding.from(new float[]{0.1f, 0.2f})));
         when(searchRepository.search(any(), anyString(), anyInt(), anyDouble())).thenReturn(List.of());
 

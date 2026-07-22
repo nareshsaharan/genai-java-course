@@ -97,12 +97,13 @@ public class TutorChatService {
      * Mock-mode embeddings are hashed pseudo-vectors with no real semantic
      * meaning, so a real similarity floor would reject them almost every
      * time and every uploaded document would look irrelevant. Drop the
-     * floor to zero while OpenAI isn't configured so retrieval still
-     * surfaces *some* chunks — the answer itself is canned either way, but
-     * this keeps the tutor demo-able end to end with zero API keys.
+     * floor to zero while the active embedding provider isn't configured
+     * so retrieval still surfaces *some* chunks — the answer itself is
+     * canned either way, but this keeps the tutor demo-able end to end
+     * with zero API keys.
      */
     private double effectiveMinScore() {
-        return StringUtils.hasText(secrets.getOpenAiKey()) ? ragProperties.minScore() : 0.0;
+        return StringUtils.hasText(secrets.getActiveEmbeddingKey()) ? ragProperties.minScore() : 0.0;
     }
 
     private String generateAnswer(String prompt) {

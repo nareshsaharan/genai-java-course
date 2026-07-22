@@ -126,6 +126,11 @@ public class GlobalExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
+    @ExceptionHandler(UnknownProviderException.class)
+    public ProblemDetail handleUnknownProvider(UnknownProviderException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ProblemDetail handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex) {
         // Thrown by Spring's own handler mapping — e.g. a multipart-only

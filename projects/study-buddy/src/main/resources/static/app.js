@@ -229,6 +229,18 @@ async function apiClearKey(provider) {
   return response.json();
 }
 
+async function apiSelectProvider(kind, provider) {
+  const response = await fetch(`/api/settings/${kind}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider }),
+  });
+  if (!response.ok) {
+    throw new ApiError(await readErrorMessage(response), response.status);
+  }
+  return response.json();
+}
+
 /* ---------------------------------------------------------------------
  * UI: 1. Document upload
  * ------------------------------------------------------------------- */
@@ -1091,28 +1103,71 @@ function applyGating(status) {
   // responses instead of a 503. These banners are purely informational —
   // they tell the visitor *why* the output looks canned, they don't block
   // anything.
-  const claudeIsMock = status.anthropic.source === 'mock';
-  const openAiIsMock = status.openai.source === 'mock';
+  const chatIsMock = status[status.chatProvider].source === 'mock';
+  // Voice always uses the OpenAI key specifically, independent of which
+  // provider is selected for embeddings.
+  const voiceIsMock = status.openai.source === 'mock';
 
-  document.getElementById('tutor-unconfigured-banner').hidden = !claudeIsMock;
-  document.getElementById('flashcard-unconfigured-banner').hidden = !claudeIsMock;
-  document.getElementById('quiz-unconfigured-banner').hidden = !claudeIsMock;
-  document.getElementById('voice-unconfigured-banner').hidden = !openAiIsMock;
+  document.getElementById('tutor-unconfigured-banner').hidden = !chatIsMock;
+  document.getElementById('flashcard-unconfigured-banner').hidden = !chatIsMock;
+  document.getElementById('quiz-unconfigured-banner').hidden = !chatIsMock;
+  document.getElementById('voice-unconfigured-banner').hidden = !voiceIsMock;
 
   const voiceRecordButton = document.getElementById('voice-record-button');
   voiceRecordButton.disabled = !(typeof window.MediaRecorder !== 'undefined' && navigator.mediaDevices?.getUserMedia);
 }
 
+function initProviderSelect(kind, selectId) {
+  const select = document.getElementById(selectId);
+
+  select.addEventListener('change', async () => {
+    const previous = select.dataset.current;
+    try {
+      const status = await apiSelectProvider(kind, select.value);
+      select.dataset.current = select.value;
+      renderAllPanels(status);
+      applyGating(status);
+    } catch (error) {
+      select.value = previous;
+    }
+  });
+
+  return {
+    render(providerValue) {
+      select.value = providerValue;
+      select.dataset.current = providerValue;
+    },
+  };
+}
+
 let refreshGating = async () => {};
+let renderAllPanels = () => {};
 
 function initSettingsSection() {
-  const anthropicPanel = initKeyPanel('anthropic');
-  const openAiPanel = initKeyPanel('openai');
+  const panels = {
+    claude: initKeyPanel('claude'),
+    groq: initKeyPanel('groq'),
+    openrouter: initKeyPanel('openrouter'),
+    gemini: initKeyPanel('gemini'),
+    openai: initKeyPanel('openai'),
+  };
+  const chatProviderSelect = initProviderSelect('chat-provider', 'settings-chat-provider-select');
+  const embeddingProviderSelect = initProviderSelect('embedding-provider', 'settings-embedding-provider-select');
+
+  function render(status) {
+    panels.claude.render(status.claude);
+    panels.groq.render(status.groq);
+    panels.openrouter.render(status.openrouter);
+    panels.gemini.render(status.gemini);
+    panels.openai.render(status.openai);
+    chatProviderSelect.render(status.chatProvider);
+    embeddingProviderSelect.render(status.embeddingProvider);
+  }
+  renderAllPanels = render;
 
   async function loadAndApply() {
     const status = await apiGetSettingsStatus();
-    anthropicPanel.render(status.anthropic);
-    openAiPanel.render(status.openai);
+    render(status);
     applyGating(status);
   }
 

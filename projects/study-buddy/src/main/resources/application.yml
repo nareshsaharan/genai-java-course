@@ -77,6 +77,26 @@ studybuddy:
     max-tokens: ${ANTHROPIC_MAX_TOKENS:1024}
     timeout-seconds: ${ANTHROPIC_TIMEOUT_SECONDS:30}
 
+  # Free/cheap alternatives to Claude for chat, selectable per session in
+  # Settings — both are OpenAI-compatible APIs, served via OpenAiChatModel
+  # with a custom baseUrl (see DynamicChatModel).
+  groq:
+    base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
+    model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+    timeout-seconds: ${GROQ_TIMEOUT_SECONDS:30}
+
+  openrouter:
+    base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+    model: ${OPENROUTER_MODEL:meta-llama/llama-3.3-70b-instruct:free}
+    timeout-seconds: ${OPENROUTER_TIMEOUT_SECONDS:30}
+
+  # Free alternative to Claude (chat) and OpenAI (embeddings) — one Gemini
+  # key powers both, selected independently per session in Settings.
+  gemini:
+    chat-model: ${GEMINI_CHAT_MODEL:gemini-2.0-flash}
+    embedding-model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
+    timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:30}
+
   rag:
     chunk-size-tokens: ${RAG_CHUNK_SIZE_TOKENS:400}
     chunk-overlap-tokens: ${RAG_CHUNK_OVERLAP_TOKENS:40}

@@ -18,7 +18,9 @@ Validation failures additionally include a `fieldErrors` map (`{"topic": "must n
 
 ---
 
-## Settings (runtime-configurable API keys)
+## Settings (runtime-configurable API keys & provider selection)
+
+Five independent provider keys (`claude`, `groq`, `openrouter`, `gemini`, `openai`), plus two independent selections: which provider is active for **chat** (Tutor/Flashcards/Quiz) and which is active for **embeddings** (document search). Gemini's key is shared between both roles; OpenAI's key is also always used for Whisper voice transcription regardless of the embedding-provider selection.
 
 ### `GET /api/settings/keys`
 
@@ -31,21 +33,26 @@ curl -c cookie.txt -b cookie.txt http://localhost:8080/api/settings/keys
 **200 OK**
 ```json
 {
-  "anthropic": { "configured": true, "source": "saved", "maskedKey": "sk-ant...ab12" },
+  "chatProvider": "claude",
+  "embeddingProvider": "openai",
+  "claude": { "configured": true, "source": "saved", "maskedKey": "sk-ant...ab12" },
+  "groq": { "configured": false, "source": "mock", "maskedKey": null },
+  "openrouter": { "configured": false, "source": "mock", "maskedKey": null },
+  "gemini": { "configured": false, "source": "mock", "maskedKey": null },
   "openai": { "configured": false, "source": "mock", "maskedKey": null }
 }
 ```
-`source` ∈ `mock` (not configured for this session — Mock Mode is active for this provider, see below) / `saved` (configured via this API, for this session only — held in server memory, never on disk, never shared with any other session). `maskedKey` is never the real key.
+`source` ∈ `mock` (not configured for this session — Mock Mode is active for this provider, see below) / `saved` (configured via this API, for this session only — held in server memory, never on disk, never shared with any other session). `maskedKey` is never the real key. All five statuses are always present regardless of which provider is currently selected, so the UI can show every key panel at once.
 
-### `PUT /api/settings/keys/anthropic` · `PUT /api/settings/keys/openai`
+### `PUT /api/settings/keys/{provider}` — `{provider}` ∈ `claude`, `groq`, `openrouter`, `gemini`, `openai`
 
 ```json
 { "apiKey": "sk-ant-..." }
 ```
-Validates the *submitted* key against the real provider (one minimal Claude call, or a cheap OpenAI `GET /v1/models` call) before persisting anything — an invalid key never overwrites a working one.
+Validates the *submitted* key against the real provider before persisting anything (one minimal chat call for `claude`/`gemini`; a cheap `GET /v1/models`-equivalent probe for `groq`/`openrouter`/`openai`) — an invalid key never overwrites a working one.
 
 ```bash
-curl -c cookie.txt -b cookie.txt -X PUT http://localhost:8080/api/settings/keys/anthropic \
+curl -c cookie.txt -b cookie.txt -X PUT http://localhost:8080/api/settings/keys/claude \
   -H "Content-Type: application/json" \
   -d '{"apiKey": "sk-ant-your-real-key"}'
 ```
@@ -54,18 +61,56 @@ curl -c cookie.txt -b cookie.txt -X PUT http://localhost:8080/api/settings/keys/
 
 | Status | When |
 |---|---|
-| 400 | blank `apiKey` |
+| 400 | blank `apiKey`, or `{provider}` isn't one of the five above |
 | 422 | the provider rejected the key — `detail` includes the provider's exact error message |
 
-### `DELETE /api/settings/keys/anthropic` · `DELETE /api/settings/keys/openai`
+### `DELETE /api/settings/keys/{provider}`
 
-Clears this session's saved key, reverting to `none` (there is no environment-variable fallback to revert to).
+Clears this session's saved key for that provider, reverting to `mock` (there is no environment-variable fallback to revert to).
 
 ```bash
-curl -c cookie.txt -b cookie.txt -X DELETE http://localhost:8080/api/settings/keys/anthropic
+curl -c cookie.txt -b cookie.txt -X DELETE http://localhost:8080/api/settings/keys/claude
 ```
 
 **200 OK** — returns the reverted status for that provider.
+
+### `PUT /api/settings/chat-provider` — `{provider}` ∈ `claude`, `groq`, `openrouter`, `gemini`
+
+```json
+{ "provider": "groq" }
+```
+Switches which provider powers Tutor/Flashcards/Quiz for this session — takes effect immediately, no restart. Does **not** require that provider to already have a key saved (it can be selected ahead of time, or left in Mock Mode).
+
+```bash
+curl -c cookie.txt -b cookie.txt -X PUT http://localhost:8080/api/settings/chat-provider \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "groq"}'
+```
+
+**200 OK** — returns the full status shape (same as `GET /api/settings/keys`).
+
+| Status | When |
+|---|---|
+| 400 | blank `provider`, or not one of `claude`/`groq`/`openrouter`/`gemini` |
+
+### `PUT /api/settings/embedding-provider` — `{provider}` ∈ `openai`, `gemini`
+
+```json
+{ "provider": "gemini" }
+```
+Switches which provider powers document embeddings for this session.
+
+```bash
+curl -c cookie.txt -b cookie.txt -X PUT http://localhost:8080/api/settings/embedding-provider \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "gemini"}'
+```
+
+**200 OK** — returns the full status shape (same as `GET /api/settings/keys`).
+
+| Status | When |
+|---|---|
+| 400 | blank `provider`, or not one of `openai`/`gemini` |
 
 ---
 
@@ -74,10 +119,12 @@ curl -c cookie.txt -b cookie.txt -X DELETE http://localhost:8080/api/settings/ke
 ### `POST /api/documents/upload`
 
 Multipart form upload. Ingests a course-notes file: extracts text, dedupes by
-content hash, chunks (~400 tokens / 40 overlap by default), embeds via OpenAI
-(`text-embedding-3-small`, truncated to 384 dims), stores in `course_chunks`.
-No OpenAI key required: while unconfigured for this session, Mock Mode embeds
-with a deterministic pseudo-vector instead (see [README.md](README.md#mock-mode--using-the-app-with-zero-api-keys)),
+content hash, chunks (~400 tokens / 40 overlap by default), embeds via the
+session's selected [embedding provider](README.md#multi-provider-chat--embeddings-free-alternatives-to-claudeopenai)
+(OpenAI `text-embedding-3-small` or Gemini `gemini-embedding-001`, both
+truncated/configured to 384 dims), stores in `course_chunks`. No API key
+required: while unconfigured, Mock Mode embeds with a deterministic
+pseudo-vector instead (see [README.md](README.md#mock-mode--using-the-app-with-zero-api-keys)),
 so upload keeps working end to end.
 
 | Part | Type | Required |
@@ -148,7 +195,7 @@ curl -X POST http://localhost:8080/api/tutor/chat \
 }
 ```
 `confidence` is `HIGH` / `MEDIUM` / `LOW` (based on top retrieved similarity
-score) or `NO_RELEVANT_CONTEXT` (no chunk cleared `RAG_MIN_SCORE` — Claude was
+score) or `NO_RELEVANT_CONTEXT` (no chunk cleared `RAG_MIN_SCORE` — the chat provider was
 never called, `sources` is empty, and the answer is a fixed "not enough
 information" message, never a guess). No API keys required: while
 unconfigured, both retrieval and the answer itself run in Mock Mode (see
@@ -158,8 +205,8 @@ returning a 503.
 | Status | When |
 |---|---|
 | 400 | blank `question` |
-| 502 | Claude call failed for a reason other than timeout |
-| 504 | Claude call timed out |
+| 502 | chat provider call failed for a reason other than timeout |
+| 504 | chat provider call timed out |
 
 ---
 
@@ -197,8 +244,8 @@ curl -X POST http://localhost:8080/api/flashcards \
   ]
 }
 ```
-Cards are generated only from retrieved course-note context (never from
-Claude's general knowledge), validated, de-duplicated (Levenshtein similarity,
+Cards are generated only from retrieved course-note context (never from the
+chat model's general knowledge), validated, de-duplicated (Levenshtein similarity,
 no regex), and capped at `count` — fewer cards than requested is possible and
 not an error. No API keys required: while unconfigured, this returns example
 cards from Mock Mode instead of a 503.
@@ -206,7 +253,7 @@ cards from Mock Mode instead of a 503.
 | Status | When |
 |---|---|
 | 404 | No course content found for `topic` (nothing relevant ingested yet) |
-| 502 / 504 | Claude call failed / timed out |
+| 502 / 504 | chat provider call failed / timed out |
 
 ---
 
@@ -243,7 +290,7 @@ curl -X POST http://localhost:8080/api/quizzes/generate \
 | Status | When |
 |---|---|
 | 404 | No course content found for `topic` (nothing relevant ingested yet) |
-| 502 / 504 | Claude call failed / timed out |
+| 502 / 504 | chat provider call failed / timed out |
 
 ### `POST /api/quizzes/{quizId}/submit`
 
