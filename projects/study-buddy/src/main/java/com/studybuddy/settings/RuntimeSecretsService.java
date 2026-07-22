@@ -1,126 +1,70 @@
 package com.studybuddy.settings;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-
-import com.studybuddy.config.properties.AudioProperties;
-import com.studybuddy.config.properties.ClaudeProperties;
+import org.springframework.web.context.WebApplicationContext;
 
 /**
- * Single source of truth for the currently-active Claude and OpenAI API
- * keys. Seeded at startup from environment variables (via
- * {@link ClaudeProperties#apiKey()} / {@link AudioProperties#apiKey()});
- * overridable at runtime through the Settings UI without an app restart.
- * Every override is persisted to a local, gitignored properties file so it
- * survives a restart — precedence on load is: persisted file &gt; env var
- * &gt; unconfigured. Never logs a raw key.
+ * Holds the currently-active Claude and OpenAI API keys for one browser
+ * session. Session-scoped (not a singleton): Spring creates one instance per
+ * HTTP session (identified by the standard session cookie) and transparently
+ * routes calls from singleton beans (via the {@code TARGET_CLASS} scoped
+ * proxy below) to whichever session's instance is active for the current
+ * request.
+ *
+ * <p>Deliberately has <em>no</em> environment-variable fallback and no
+ * cross-session persistence: this app can be a publicly hosted deployment,
+ * and a stranger opening the page must never be able to use — or silently
+ * overwrite — the deployer's own key. Every new session starts fully
+ * unconfigured; each visitor must add their own key via the Settings UI.
+ * Never logs a raw key.
  */
 @Component
+@Scope(value = WebApplicationContext.SCOPE_SESSION, proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class RuntimeSecretsService {
 
-    private static final Logger log = LoggerFactory.getLogger(RuntimeSecretsService.class);
-    private static final String ANTHROPIC_PROPERTY = "anthropic.apiKey";
-    private static final String OPENAI_PROPERTY = "openai.apiKey";
-    private static final Path DEFAULT_SECRETS_FILE = Path.of("./data/runtime-secrets.properties");
+    private String anthropicKey;
+    private String openAiKey;
 
-    private final Path secretsFilePath;
-    private final String anthropicEnvDefault;
-    private final String openAiEnvDefault;
-
-    private final AtomicReference<String> anthropicKey = new AtomicReference<>();
-    private final AtomicReference<String> openAiKey = new AtomicReference<>();
-    private final AtomicBoolean anthropicFromFile = new AtomicBoolean(false);
-    private final AtomicBoolean openAiFromFile = new AtomicBoolean(false);
-
-    @Autowired
-    public RuntimeSecretsService(ClaudeProperties claudeProperties, AudioProperties audioProperties) {
-        this(claudeProperties, audioProperties, DEFAULT_SECRETS_FILE);
+    public synchronized String getAnthropicKey() {
+        return anthropicKey;
     }
 
-    RuntimeSecretsService(ClaudeProperties claudeProperties, AudioProperties audioProperties, Path secretsFilePath) {
-        this.secretsFilePath = secretsFilePath;
-        this.anthropicEnvDefault = claudeProperties.apiKey();
-        this.openAiEnvDefault = audioProperties.apiKey();
-        loadFromFileOrEnv();
+    public synchronized String getOpenAiKey() {
+        return openAiKey;
     }
 
-    private void loadFromFileOrEnv() {
-        Properties saved = readPersistedFile();
-        String savedAnthropic = saved.getProperty(ANTHROPIC_PROPERTY);
-        String savedOpenAi = saved.getProperty(OPENAI_PROPERTY);
-
-        if (StringUtils.hasText(savedAnthropic)) {
-            anthropicKey.set(savedAnthropic);
-            anthropicFromFile.set(true);
-        } else {
-            anthropicKey.set(anthropicEnvDefault);
-        }
-
-        if (StringUtils.hasText(savedOpenAi)) {
-            openAiKey.set(savedOpenAi);
-            openAiFromFile.set(true);
-        } else {
-            openAiKey.set(openAiEnvDefault);
-        }
+    public synchronized KeyStatus getAnthropicStatus() {
+        return status(anthropicKey);
     }
 
-    public String getAnthropicKey() {
-        return anthropicKey.get();
+    public synchronized KeyStatus getOpenAiStatus() {
+        return status(openAiKey);
     }
 
-    public String getOpenAiKey() {
-        return openAiKey.get();
+    public synchronized void setAnthropicKey(String newKey) {
+        this.anthropicKey = newKey;
     }
 
-    public KeyStatus getAnthropicStatus() {
-        return status(anthropicKey.get(), anthropicFromFile.get());
+    public synchronized void setOpenAiKey(String newKey) {
+        this.openAiKey = newKey;
     }
 
-    public KeyStatus getOpenAiStatus() {
-        return status(openAiKey.get(), openAiFromFile.get());
+    public synchronized void clearAnthropicKey() {
+        this.anthropicKey = null;
     }
 
-    public void setAnthropicKey(String newKey) {
-        anthropicKey.set(newKey);
-        anthropicFromFile.set(true);
-        persist();
+    public synchronized void clearOpenAiKey() {
+        this.openAiKey = null;
     }
 
-    public void setOpenAiKey(String newKey) {
-        openAiKey.set(newKey);
-        openAiFromFile.set(true);
-        persist();
-    }
-
-    public void clearAnthropicKey() {
-        anthropicKey.set(anthropicEnvDefault);
-        anthropicFromFile.set(false);
-        persist();
-    }
-
-    public void clearOpenAiKey() {
-        openAiKey.set(openAiEnvDefault);
-        openAiFromFile.set(false);
-        persist();
-    }
-
-    private static KeyStatus status(String key, boolean fromFile) {
+    private static KeyStatus status(String key) {
         if (!StringUtils.hasText(key)) {
             return new KeyStatus(false, "none", null);
         }
-        return new KeyStatus(true, fromFile ? "saved" : "env", mask(key));
+        return new KeyStatus(true, "saved", mask(key));
     }
 
     static String mask(String key) {
@@ -128,40 +72,6 @@ public class RuntimeSecretsService {
             return "***";
         }
         return key.substring(0, 6) + "..." + key.substring(key.length() - 4);
-    }
-
-    private Properties readPersistedFile() {
-        Properties properties = new Properties();
-        if (!Files.exists(secretsFilePath)) {
-            return properties;
-        }
-        try (InputStream in = Files.newInputStream(secretsFilePath)) {
-            properties.load(in);
-        } catch (IOException e) {
-            log.warn("Failed to read persisted runtime secrets file at {}", secretsFilePath, e);
-        }
-        return properties;
-    }
-
-    private void persist() {
-        Properties properties = new Properties();
-        if (anthropicFromFile.get() && StringUtils.hasText(anthropicKey.get())) {
-            properties.setProperty(ANTHROPIC_PROPERTY, anthropicKey.get());
-        }
-        if (openAiFromFile.get() && StringUtils.hasText(openAiKey.get())) {
-            properties.setProperty(OPENAI_PROPERTY, openAiKey.get());
-        }
-        try {
-            Path parent = secretsFilePath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            try (OutputStream out = Files.newOutputStream(secretsFilePath)) {
-                properties.store(out, "Study Buddy runtime-saved API keys — do not commit");
-            }
-        } catch (IOException e) {
-            log.warn("Failed to persist runtime secrets file at {}", secretsFilePath, e);
-        }
     }
 
     /** API-facing view of one provider's key state — never the raw key itself. */

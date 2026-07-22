@@ -194,7 +194,7 @@ Every setting is env-var driven with a working local default — see
 | Prefix | Record | Purpose |
 |---|---|---|
 | `studybuddy.database` | `DatabaseProperties` | pgvector store connection (separate from `spring.datasource.*` since the embedding store needs discrete host/port/table fields) |
-| `studybuddy.claude` | `ClaudeProperties` | Anthropic API key/model/timeout. Optional at startup — seeds [`RuntimeSecretsService`](#settings-ui-runtime-configurable-api-keys), which can also be configured (or overridden) later from the Settings tab in the UI without a restart |
+| `studybuddy.claude` | `ClaudeProperties` | Anthropic model/timeout config. The `api-key`/`ANTHROPIC_API_KEY` value is no longer read anywhere — every session must configure its own key from the [Settings tab](#settings-ui-runtime-configurable-api-keys) instead (see [`RuntimeSecretsService`](#settings-ui-runtime-configurable-api-keys)) |
 | `studybuddy.rag` | `RagProperties` | chunk size/overlap, retrieval topK/minScore |
 | `studybuddy.progress` | `ProgressProperties` | weak-topic classification thresholds |
 | `studybuddy.mcp` | `McpProperties` | MCP endpoint shared-secret (only read under `--spring.profiles.active=mcp`) |
@@ -207,12 +207,13 @@ Every setting is env-var driven with a working local default — see
 The **Settings** tab (first tab in the UI) lets you paste, verify, and save Claude/OpenAI keys from the browser instead of only through `.env`:
 
 - **Save & Verify** makes one real, minimal call to the provider with the *submitted* key (never the currently-active one) before saving anything — an invalid key is rejected inline with the provider's exact error message, and the working key stays untouched.
-- Saved keys are persisted server-side to a local, gitignored file (`./data/runtime-secrets.properties`) so they survive an app restart — they're never sent back to the browser (only a masked form, e.g. `sk-ant...ab12`).
-- Precedence at startup: **saved-via-UI > `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` env var > unconfigured**. Existing `.env`/`docker-compose.yml` setups keep working unchanged.
+- Keys are **session-scoped, in-memory only, per browser session** — identified by the standard session cookie, held only in server memory, never written to disk. This app is publicly hosted, so a stranger opening the page must never be able to use, or overwrite, another visitor's key: every new session (including a fresh no-cookie `curl` request) starts fully unconfigured, with **no** environment-variable fallback. Closing the session (or restarting the app) discards the key — each visitor must add their own key from the Settings tab every session.
 - While Claude isn't configured, the Tutor/Flashcards/Quiz tabs show a banner and disable their submit buttons instead of letting you hit a 503 after submitting; same for Voice input and the OpenAI key.
 - A light/dark theme toggle lives next to the title — light is "Indigo Educational", dark is "Slate Dark-First" (two distinct palettes, not one palette at two brightness levels); the choice is remembered in the browser and defaults to your OS preference on first visit.
 
-Backend pieces: `RuntimeSecretsService` (source of truth + persistence), `AnthropicKeyValidator`/`OpenAiKeyValidator` (pre-save verification), `DynamicAnthropicChatModel` (rebuilds its cached Claude client when the key changes, no restart needed), `SettingsController` (`GET`/`PUT`/`DELETE /api/settings/keys/*`) — see [API.md](API.md) for the full request/response shapes.
+Backend pieces: `RuntimeSecretsService` (session-scoped source of truth — see its Javadoc for the `@Scope`/scoped-proxy mechanism), `AnthropicKeyValidator`/`OpenAiKeyValidator` (pre-save verification), `DynamicAnthropicChatModel`/`DynamicOpenAiEmbeddingModel` (rebuild their cached client when the session's key changes, no restart needed), `SettingsController` (`GET`/`PUT`/`DELETE /api/settings/keys/*`) — see [API.md](API.md) for the full request/response shapes.
+
+> Testing with `curl`: a browser keeps the same session automatically via its cookie jar, but `curl` doesn't unless you tell it to. Use `-c cookie.txt -b cookie.txt` on every call to simulate one persistent visitor; otherwise each request looks like a brand-new, unconfigured session.
 
 ---
 

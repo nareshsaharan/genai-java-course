@@ -22,18 +22,20 @@ Validation failures additionally include a `fieldErrors` map (`{"topic": "must n
 
 ### `GET /api/settings/keys`
 
+Keys are **session-scoped** (tied to the standard session cookie) — this call needs the same cookie jar as any `PUT`/`DELETE` below to see a previously-saved key; a fresh no-cookie request always comes back unconfigured.
+
 ```bash
-curl http://localhost:8080/api/settings/keys
+curl -c cookie.txt -b cookie.txt http://localhost:8080/api/settings/keys
 ```
 
 **200 OK**
 ```json
 {
-  "anthropic": { "configured": true, "source": "env", "maskedKey": "sk-ant...ab12" },
+  "anthropic": { "configured": true, "source": "saved", "maskedKey": "sk-ant...ab12" },
   "openai": { "configured": false, "source": "none", "maskedKey": null }
 }
 ```
-`source` ∈ `none` (never configured) / `env` (from `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`, no override saved) / `saved` (overridden via this API, persisted locally). `maskedKey` is never the real key.
+`source` ∈ `none` (not configured for this session) / `saved` (configured via this API, for this session only — held in server memory, never on disk, never shared with any other session). `maskedKey` is never the real key.
 
 ### `PUT /api/settings/keys/anthropic` · `PUT /api/settings/keys/openai`
 
@@ -43,7 +45,7 @@ curl http://localhost:8080/api/settings/keys
 Validates the *submitted* key against the real provider (one minimal Claude call, or a cheap OpenAI `GET /v1/models` call) before persisting anything — an invalid key never overwrites a working one.
 
 ```bash
-curl -X PUT http://localhost:8080/api/settings/keys/anthropic \
+curl -c cookie.txt -b cookie.txt -X PUT http://localhost:8080/api/settings/keys/anthropic \
   -H "Content-Type: application/json" \
   -d '{"apiKey": "sk-ant-your-real-key"}'
 ```
@@ -57,10 +59,10 @@ curl -X PUT http://localhost:8080/api/settings/keys/anthropic \
 
 ### `DELETE /api/settings/keys/anthropic` · `DELETE /api/settings/keys/openai`
 
-Clears a saved override, reverting to the environment variable default (or `none` if that's unset too).
+Clears this session's saved key, reverting to `none` (there is no environment-variable fallback to revert to).
 
 ```bash
-curl -X DELETE http://localhost:8080/api/settings/keys/anthropic
+curl -c cookie.txt -b cookie.txt -X DELETE http://localhost:8080/api/settings/keys/anthropic
 ```
 
 **200 OK** — returns the reverted status for that provider.
