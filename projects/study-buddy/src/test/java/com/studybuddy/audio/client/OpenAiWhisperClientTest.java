@@ -1,13 +1,12 @@
 package com.studybuddy.audio.client;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.studybuddy.common.exception.AudioServiceNotConfiguredException;
 import com.studybuddy.config.properties.AudioProperties;
 import com.studybuddy.settings.RuntimeSecretsService;
 
@@ -18,22 +17,24 @@ class OpenAiWhisperClientTest {
     }
 
     @Test
-    void throwsAudioServiceNotConfiguredWhenRuntimeSecretsHasNoOpenAiKey() {
+    void returnsMockTranscriptionWhenRuntimeSecretsHasNoOpenAiKey() {
         RuntimeSecretsService secrets = mock(RuntimeSecretsService.class);
         when(secrets.getOpenAiKey()).thenReturn(null);
         OpenAiWhisperClient client = new OpenAiWhisperClient(properties(), new ObjectMapper(), secrets);
 
-        assertThatThrownBy(() -> client.transcribe(new byte[]{1, 2, 3}, "question.wav", "audio/wav"))
-                .isInstanceOf(AudioServiceNotConfiguredException.class);
+        WhisperTranscriptionResult result = client.transcribe(new byte[]{1, 2, 3}, "question.wav", "audio/wav");
+
+        assertThat(result.text()).containsIgnoringCase("mock");
     }
 
     @Test
-    void throwsAudioServiceNotConfiguredWhenRuntimeSecretsHasBlankOpenAiKey() {
+    void returnsMockTranscriptionWhenRuntimeSecretsHasBlankOpenAiKey() {
         RuntimeSecretsService secrets = mock(RuntimeSecretsService.class);
         when(secrets.getOpenAiKey()).thenReturn("   ");
         OpenAiWhisperClient client = new OpenAiWhisperClient(properties(), new ObjectMapper(), secrets);
 
-        assertThatThrownBy(() -> client.transcribe(new byte[]{1, 2, 3}, "question.wav", "audio/wav"))
-                .isInstanceOf(AudioServiceNotConfiguredException.class);
+        WhisperTranscriptionResult result = client.transcribe(new byte[]{1, 2, 3}, "question.wav", "audio/wav");
+
+        assertThat(result.text()).containsIgnoringCase("mock");
     }
 }

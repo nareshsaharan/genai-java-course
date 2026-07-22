@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import com.studybuddy.common.exception.AudioServiceNotConfiguredException;
 import com.studybuddy.config.properties.AudioProperties;
 import com.studybuddy.settings.RuntimeSecretsService;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -31,6 +30,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * language or duration — which this project's response contract requires.
  * {@code verbose_json} is only supported by the {@code whisper-1} model
  * (the newer gpt-4o-transcribe family only supports streaming json/text).
+ *
+ * <p>When no key is configured for the session (Mock Mode — the default for
+ * every new session), no real API call is made: a canned transcript is
+ * returned instead, so voice input stays usable with zero API keys.
  */
 @Component
 public class OpenAiWhisperClient implements WhisperClient {
@@ -56,8 +59,7 @@ public class OpenAiWhisperClient implements WhisperClient {
     @Override
     public WhisperTranscriptionResult transcribe(byte[] audioBytes, String filename, String mimeType) {
         if (!StringUtils.hasText(secrets.getOpenAiKey())) {
-            throw new AudioServiceNotConfiguredException(
-                    "Voice input is not configured on this server — set OPENAI_API_KEY to enable it.");
+            return mockTranscription();
         }
 
         int maxAttempts = properties.maxRetries() + 1;
@@ -87,6 +89,14 @@ public class OpenAiWhisperClient implements WhisperClient {
 
         log.warn("Whisper transcription failed after {} attempt(s)", maxAttempts);
         throw lastFailure;
+    }
+
+    private static WhisperTranscriptionResult mockTranscription() {
+        return new WhisperTranscriptionResult(
+                "This is a mock transcription — Mock Mode is active because no OpenAI API key is "
+                        + "configured for this session. Add your OpenAI API key in the Settings tab "
+                        + "for real speech-to-text.",
+                "en", 0.0);
     }
 
     private WhisperTranscriptionResult doTranscribe(byte[] audioBytes, String filename, String mimeType)

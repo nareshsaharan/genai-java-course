@@ -24,6 +24,7 @@ import com.studybuddy.flashcard.dto.FlashcardGenerateResponse;
 import com.studybuddy.flashcard.repository.FlashcardRecord;
 import com.studybuddy.flashcard.repository.FlashcardRepository;
 import com.studybuddy.observability.StudyBuddyMetrics;
+import com.studybuddy.settings.RuntimeSecretsService;
 
 import dev.langchain4j.exception.LangChain4jException;
 import dev.langchain4j.exception.TimeoutException;
@@ -48,6 +49,7 @@ public class FlashcardService {
     private final FlashcardRepository flashcardRepository;
     private final RagProperties ragProperties;
     private final StudyBuddyMetrics metrics;
+    private final RuntimeSecretsService secrets;
 
     public FlashcardService(
             EmbeddingModel embeddingModel,
@@ -55,7 +57,9 @@ public class FlashcardService {
             FlashcardGenerator flashcardGenerator,
             FlashcardRepository flashcardRepository,
             RagProperties ragProperties,
-            StudyBuddyMetrics metrics) {
+            StudyBuddyMetrics metrics,
+            RuntimeSecretsService secrets) {
+        this.secrets = secrets;
         this.embeddingModel = embeddingModel;
         this.searchRepository = searchRepository;
         this.flashcardGenerator = flashcardGenerator;
@@ -115,9 +119,14 @@ public class FlashcardService {
     private List<ChunkSearchResult> timedSearch(float[] topicEmbedding, String topic) {
         long searchStartNanos = System.nanoTime();
         List<ChunkSearchResult> results = searchRepository.search(
-                topicEmbedding, topic, ragProperties.maxResults(), ragProperties.minScore());
+                topicEmbedding, topic, ragProperties.maxResults(), effectiveMinScore());
         metrics.recordRetrievalLatency(FEATURE, Duration.ofNanos(System.nanoTime() - searchStartNanos));
         return results;
+    }
+
+    /** See {@code TutorChatService.effectiveMinScore()} — same Mock Mode rationale. */
+    private double effectiveMinScore() {
+        return StringUtils.hasText(secrets.getOpenAiKey()) ? ragProperties.minScore() : 0.0;
     }
 
     private List<GeneratedFlashcard> generateCards(String prompt) {

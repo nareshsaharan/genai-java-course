@@ -32,10 +32,10 @@ curl -c cookie.txt -b cookie.txt http://localhost:8080/api/settings/keys
 ```json
 {
   "anthropic": { "configured": true, "source": "saved", "maskedKey": "sk-ant...ab12" },
-  "openai": { "configured": false, "source": "none", "maskedKey": null }
+  "openai": { "configured": false, "source": "mock", "maskedKey": null }
 }
 ```
-`source` ∈ `none` (not configured for this session) / `saved` (configured via this API, for this session only — held in server memory, never on disk, never shared with any other session). `maskedKey` is never the real key.
+`source` ∈ `mock` (not configured for this session — Mock Mode is active for this provider, see below) / `saved` (configured via this API, for this session only — held in server memory, never on disk, never shared with any other session). `maskedKey` is never the real key.
 
 ### `PUT /api/settings/keys/anthropic` · `PUT /api/settings/keys/openai`
 
@@ -75,8 +75,10 @@ curl -c cookie.txt -b cookie.txt -X DELETE http://localhost:8080/api/settings/ke
 
 Multipart form upload. Ingests a course-notes file: extracts text, dedupes by
 content hash, chunks (~400 tokens / 40 overlap by default), embeds via OpenAI
-(`text-embedding-3-small`, truncated to 384 dims — requires `OPENAI_API_KEY`),
-stores in `course_chunks`.
+(`text-embedding-3-small`, truncated to 384 dims), stores in `course_chunks`.
+No OpenAI key required: while unconfigured for this session, Mock Mode embeds
+with a deterministic pseudo-vector instead (see [README.md](README.md#mock-mode--using-the-app-with-zero-api-keys)),
+so upload keeps working end to end.
 
 | Part | Type | Required |
 |---|---|---|
@@ -106,7 +108,6 @@ the original document's id/chunkCount, HTTP 201, no new rows written).
 | 415 | Unsupported file type, or missing/wrong multipart Content-Type |
 | 422 | Empty file / no extractable text |
 | 413 | File exceeds `spring.servlet.multipart.max-file-size` (25MB) |
-| 503 | `OPENAI_API_KEY` not configured (embeddings are required for ingestion) |
 
 ---
 
@@ -149,14 +150,16 @@ curl -X POST http://localhost:8080/api/tutor/chat \
 `confidence` is `HIGH` / `MEDIUM` / `LOW` (based on top retrieved similarity
 score) or `NO_RELEVANT_CONTEXT` (no chunk cleared `RAG_MIN_SCORE` — Claude was
 never called, `sources` is empty, and the answer is a fixed "not enough
-information" message, never a guess).
+information" message, never a guess). No API keys required: while
+unconfigured, both retrieval and the answer itself run in Mock Mode (see
+[README.md](README.md#mock-mode--using-the-app-with-zero-api-keys)) instead of
+returning a 503.
 
 | Status | When |
 |---|---|
 | 400 | blank `question` |
 | 502 | Claude call failed for a reason other than timeout |
 | 504 | Claude call timed out |
-| 503 | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` not configured (embeddings also require OpenAI) |
 
 ---
 
@@ -197,13 +200,13 @@ curl -X POST http://localhost:8080/api/flashcards \
 Cards are generated only from retrieved course-note context (never from
 Claude's general knowledge), validated, de-duplicated (Levenshtein similarity,
 no regex), and capped at `count` — fewer cards than requested is possible and
-not an error.
+not an error. No API keys required: while unconfigured, this returns example
+cards from Mock Mode instead of a 503.
 
 | Status | When |
 |---|---|
 | 404 | No course content found for `topic` (nothing relevant ingested yet) |
 | 502 / 504 | Claude call failed / timed out |
-| 503 | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` not configured |
 
 ---
 
@@ -211,7 +214,9 @@ not an error.
 
 ### `POST /api/quizzes/generate`
 
-Same request shape as flashcards (`topic`, `count`, `difficulty`).
+Same request shape as flashcards (`topic`, `count`, `difficulty`). No API keys
+required: while unconfigured, this returns an example quiz from Mock Mode
+instead of a 503.
 
 ```bash
 curl -X POST http://localhost:8080/api/quizzes/generate \
@@ -239,7 +244,6 @@ curl -X POST http://localhost:8080/api/quizzes/generate \
 |---|---|
 | 404 | No course content found for `topic` (nothing relevant ingested yet) |
 | 502 / 504 | Claude call failed / timed out |
-| 503 | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` not configured |
 
 ### `POST /api/quizzes/{quizId}/submit`
 
@@ -327,10 +331,12 @@ curl http://localhost:8080/api/progress/recommendation
 
 ### `POST /api/audio/transcribe`
 
-Requires `OPENAI_API_KEY` to be set — otherwise every call returns 503
-without attempting a network call. Recordings are never written to disk
-unless `AUDIO_PERSIST_RECORDINGS=true`; the staged temp file is always
-deleted after the call regardless of success/failure.
+No OpenAI key required: while unconfigured for this session, Mock Mode
+returns a canned transcript instead of a 503 (see
+[README.md](README.md#mock-mode--using-the-app-with-zero-api-keys)).
+Recordings are never written to disk unless `AUDIO_PERSIST_RECORDINGS=true`;
+the staged temp file is always deleted after the call regardless of
+success/failure.
 
 | Part | Type | Required |
 |---|---|---|
@@ -348,7 +354,6 @@ curl -X POST http://localhost:8080/api/audio/transcribe \
 
 | Status | When |
 |---|---|
-| 503 | `OPENAI_API_KEY` not configured |
 | 415 | Unsupported audio format |
 | 413 | File exceeds `AUDIO_MAX_FILE_SIZE_BYTES`, or estimated duration exceeds `AUDIO_MAX_DURATION_SECONDS` |
 | 422 | Empty/unreadable file |

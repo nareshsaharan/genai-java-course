@@ -14,7 +14,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.studybuddy.audio.dto.AudioTranscriptionResult;
-import com.studybuddy.common.exception.AudioServiceNotConfiguredException;
 import com.studybuddy.common.exception.AudioTooLargeException;
 import com.studybuddy.common.exception.UnsupportedAudioFormatException;
 
@@ -64,15 +63,5 @@ class AudioControllerTest {
 
         mockMvc.perform(multipart("/api/audio/transcribe").file(file))
                 .andExpect(status().isPayloadTooLarge());
-    }
-
-    @Test
-    void transcribeWhenNotConfiguredReturnsServiceUnavailable() throws Exception {
-        MockMultipartFile file = new MockMultipartFile("file", "question.mp3", "audio/mpeg", "x".getBytes());
-        when(audioTranscriptionService.transcribe(any()))
-                .thenThrow(new AudioServiceNotConfiguredException("not configured"));
-
-        mockMvc.perform(multipart("/api/audio/transcribe").file(file))
-                .andExpect(status().isServiceUnavailable());
     }
 }

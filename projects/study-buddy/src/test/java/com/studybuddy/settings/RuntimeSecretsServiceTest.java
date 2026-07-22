@@ -17,13 +17,13 @@ import org.junit.jupiter.api.Test;
 class RuntimeSecretsServiceTest {
 
     @Test
-    void startsUnconfigured() {
+    void startsUnconfiguredInMockMode() {
         RuntimeSecretsService service = new RuntimeSecretsService();
 
         assertThat(service.getAnthropicKey()).isNull();
         RuntimeSecretsService.KeyStatus status = service.getAnthropicStatus();
         assertThat(status.configured()).isFalse();
-        assertThat(status.source()).isEqualTo("none");
+        assertThat(status.source()).isEqualTo("mock");
         assertThat(status.maskedKey()).isNull();
     }
 

@@ -40,6 +40,7 @@ import com.studybuddy.quiz.repository.QuizAttemptRepository;
 import com.studybuddy.quiz.repository.QuizQuestionRecord;
 import com.studybuddy.quiz.repository.QuizRecord;
 import com.studybuddy.quiz.repository.QuizRepository;
+import com.studybuddy.settings.RuntimeSecretsService;
 
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.exception.LangChain4jException;
@@ -59,10 +60,15 @@ class QuizServiceTest {
     private final RagProperties ragProperties = new RagProperties(400, 40, 5, 0.6);
     private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     private final StudyBuddyMetrics metrics = new StudyBuddyMetrics(meterRegistry);
+    private final RuntimeSecretsService secrets = mock(RuntimeSecretsService.class);
 
     private final QuizService service = new QuizService(
             embeddingModel, searchRepository, quizGenerator, quizRepository, quizAttemptRepository,
-            progressService, ragProperties, metrics);
+            progressService, ragProperties, metrics, secrets);
+
+    {
+        when(secrets.getOpenAiKey()).thenReturn("sk-test-key-configured");
+    }
 
     private ChunkSearchResult someChunk() {
         return new ChunkSearchResult(UUID.randomUUID(), "RAG combines retrieval with generation.", "rag-notes.pdf", 3, 0.9);
@@ -109,6 +115,18 @@ class QuizServiceTest {
 
         verify(quizGenerator, never()).generate(any());
         verify(quizRepository, never()).save(any());
+    }
+
+    @Test
+    void mockModeDropsTheSimilarityFloorToZeroWhenNoOpenAiKeyIsConfigured() {
+        when(secrets.getOpenAiKey()).thenReturn(null);
+        when(embeddingModel.embed(anyString())).thenReturn(Response.from(Embedding.from(new float[]{0.1f, 0.2f})));
+        when(searchRepository.search(any(), anyString(), anyInt(), anyDouble())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.generate(new QuizGenerateRequest("Quantum Computing", 5, Difficulty.MEDIUM)))
+                .isInstanceOf(NoRelevantContextException.class);
+
+        verify(searchRepository).search(any(), anyString(), anyInt(), org.mockito.ArgumentMatchers.eq(0.0));
     }
 
     @Test

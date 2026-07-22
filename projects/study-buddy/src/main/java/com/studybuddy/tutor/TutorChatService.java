@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import com.studybuddy.common.exception.TutorAnswerGenerationException;
 import com.studybuddy.common.exception.TutorAnswerTimeoutException;
@@ -15,6 +16,7 @@ import com.studybuddy.config.properties.RagProperties;
 import com.studybuddy.document.repository.ChunkSearchResult;
 import com.studybuddy.document.repository.CourseChunkSearchRepository;
 import com.studybuddy.observability.StudyBuddyMetrics;
+import com.studybuddy.settings.RuntimeSecretsService;
 import com.studybuddy.tutor.dto.SourceReference;
 import com.studybuddy.tutor.dto.TutorChatRequest;
 import com.studybuddy.tutor.dto.TutorChatResponse;
@@ -42,18 +44,21 @@ public class TutorChatService {
     private final TutorAssistant tutorAssistant;
     private final RagProperties ragProperties;
     private final StudyBuddyMetrics metrics;
+    private final RuntimeSecretsService secrets;
 
     public TutorChatService(
             EmbeddingModel embeddingModel,
             CourseChunkSearchRepository searchRepository,
             TutorAssistant tutorAssistant,
             RagProperties ragProperties,
-            StudyBuddyMetrics metrics) {
+            StudyBuddyMetrics metrics,
+            RuntimeSecretsService secrets) {
         this.embeddingModel = embeddingModel;
         this.searchRepository = searchRepository;
         this.tutorAssistant = tutorAssistant;
         this.ragProperties = ragProperties;
         this.metrics = metrics;
+        this.secrets = secrets;
     }
 
     public TutorChatResponse chat(TutorChatRequest request) {
@@ -83,9 +88,21 @@ public class TutorChatService {
     private List<ChunkSearchResult> timedSearch(float[] questionEmbedding, String topic) {
         long searchStartNanos = System.nanoTime();
         List<ChunkSearchResult> results = searchRepository.search(
-                questionEmbedding, topic, ragProperties.maxResults(), ragProperties.minScore());
+                questionEmbedding, topic, ragProperties.maxResults(), effectiveMinScore());
         metrics.recordRetrievalLatency(FEATURE, Duration.ofNanos(System.nanoTime() - searchStartNanos));
         return results;
+    }
+
+    /**
+     * Mock-mode embeddings are hashed pseudo-vectors with no real semantic
+     * meaning, so a real similarity floor would reject them almost every
+     * time and every uploaded document would look irrelevant. Drop the
+     * floor to zero while OpenAI isn't configured so retrieval still
+     * surfaces *some* chunks — the answer itself is canned either way, but
+     * this keeps the tutor demo-able end to end with zero API keys.
+     */
+    private double effectiveMinScore() {
+        return StringUtils.hasText(secrets.getOpenAiKey()) ? ragProperties.minScore() : 0.0;
     }
 
     private String generateAnswer(String prompt) {

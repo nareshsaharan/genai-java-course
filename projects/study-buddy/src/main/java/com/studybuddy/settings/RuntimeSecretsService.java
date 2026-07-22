@@ -18,8 +18,11 @@ import org.springframework.web.context.WebApplicationContext;
  * cross-session persistence: this app can be a publicly hosted deployment,
  * and a stranger opening the page must never be able to use — or silently
  * overwrite — the deployer's own key. Every new session starts fully
- * unconfigured; each visitor must add their own key via the Settings UI.
- * Never logs a raw key.
+ * unconfigured; each visitor must add their own key via the Settings UI —
+ * or use the app as-is: while unconfigured, {@code DynamicAnthropicChatModel}
+ * / {@code DynamicOpenAiEmbeddingModel} / {@code OpenAiWhisperClient} all
+ * serve canned Mock Mode responses instead of failing, so the app stays
+ * fully usable with zero API keys. Never logs a raw key.
  */
 @Component
 @Scope(value = WebApplicationContext.SCOPE_SESSION, proxyMode = ScopedProxyMode.TARGET_CLASS)
@@ -62,7 +65,7 @@ public class RuntimeSecretsService {
 
     private static KeyStatus status(String key) {
         if (!StringUtils.hasText(key)) {
-            return new KeyStatus(false, "none", null);
+            return new KeyStatus(false, "mock", null);
         }
         return new KeyStatus(true, "saved", mask(key));
     }
@@ -74,7 +77,12 @@ public class RuntimeSecretsService {
         return key.substring(0, 6) + "..." + key.substring(key.length() - 4);
     }
 
-    /** API-facing view of one provider's key state — never the raw key itself. */
+    /**
+     * API-facing view of one provider's key state — never the raw key itself.
+     * {@code source} is {@code "mock"} while unconfigured (Mock Mode is
+     * active for this provider) or {@code "saved"} once a real key has been
+     * saved via the Settings UI for this session.
+     */
     public record KeyStatus(boolean configured, String source, String maskedKey) {
     }
 }

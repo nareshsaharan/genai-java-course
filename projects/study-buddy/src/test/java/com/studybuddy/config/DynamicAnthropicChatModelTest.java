@@ -1,16 +1,16 @@
 package com.studybuddy.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-import com.studybuddy.common.exception.ClaudeNotConfiguredException;
 import com.studybuddy.config.properties.ClaudeProperties;
 import com.studybuddy.settings.RuntimeSecretsService;
 
+import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.response.ChatResponse;
 
 class DynamicAnthropicChatModelTest {
 
@@ -19,12 +19,43 @@ class DynamicAnthropicChatModelTest {
     }
 
     @Test
-    void throwsClaudeNotConfiguredWhenNoKeyIsSet() {
+    void returnsMockAnswerWhenNoKeyIsSet() {
         RuntimeSecretsService secrets = mockSecrets(null);
         DynamicAnthropicChatModel model = new DynamicAnthropicChatModel(secrets, properties());
 
-        assertThatThrownBy(() -> model.doChat(request()))
-                .isInstanceOf(ClaudeNotConfiguredException.class);
+        ChatResponse response = model.doChat(request());
+
+        assertThat(response.aiMessage().text()).containsIgnoringCase("mock mode");
+    }
+
+    @Test
+    void returnsMockFlashcardJsonWhenPromptAsksForCardsAndNoKeyIsSet() {
+        RuntimeSecretsService secrets = mockSecrets(null);
+        DynamicAnthropicChatModel model = new DynamicAnthropicChatModel(secrets, properties());
+        ChatRequest flashcardRequest = ChatRequest.builder()
+                .messages(
+                        SystemMessage.from("Respond with JSON: {\"cards\": [...]}"),
+                        UserMessage.from("Generate flashcards"))
+                .build();
+
+        ChatResponse response = model.doChat(flashcardRequest);
+
+        assertThat(response.aiMessage().text()).contains("\"cards\"");
+    }
+
+    @Test
+    void returnsMockQuizJsonWhenPromptAsksForCorrectOptionIndexAndNoKeyIsSet() {
+        RuntimeSecretsService secrets = mockSecrets(null);
+        DynamicAnthropicChatModel model = new DynamicAnthropicChatModel(secrets, properties());
+        ChatRequest quizRequest = ChatRequest.builder()
+                .messages(
+                        SystemMessage.from("Respond with JSON: {\"questions\": [{\"correctOptionIndex\": 0}]}"),
+                        UserMessage.from("Generate a quiz"))
+                .build();
+
+        ChatResponse response = model.doChat(quizRequest);
+
+        assertThat(response.aiMessage().text()).contains("\"questions\"").contains("correctOptionIndex");
     }
 
     @Test

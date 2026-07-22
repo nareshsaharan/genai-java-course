@@ -1,13 +1,17 @@
 package com.studybuddy.config;
 
 import java.time.Duration;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
-import com.studybuddy.common.exception.ClaudeNotConfiguredException;
 import com.studybuddy.config.properties.ClaudeProperties;
 import com.studybuddy.settings.RuntimeSecretsService;
 
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.anthropic.AnthropicChatModel;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
@@ -23,6 +27,11 @@ import dev.langchain4j.model.chat.response.ChatResponse;
  * Replaces the old fixed {@code ChatModelConfig} bean; {@code TutorAssistant}
  * / {@code FlashcardGenerator} / {@code QuizGenerator} are unaffected since
  * they only depend on the {@link ChatModel} interface.
+ *
+ * <p>When no key is configured for the session (Mock Mode — the default for
+ * every new session, see {@link RuntimeSecretsService}), no real API call is
+ * made at all: a canned {@link ChatResponse} is returned instead, so Tutor,
+ * Flashcards, and Quiz all stay fully usable with zero API keys.
  */
 @Component
 public class DynamicAnthropicChatModel implements ChatModel {
@@ -40,20 +49,38 @@ public class DynamicAnthropicChatModel implements ChatModel {
 
     @Override
     public ChatResponse doChat(ChatRequest chatRequest) {
-        return resolve().chat(chatRequest);
+        String currentKey = secrets.getAnthropicKey();
+        if (currentKey == null || currentKey.isBlank()) {
+            return mockResponse(chatRequest);
+        }
+        return resolve(currentKey).chat(chatRequest);
     }
 
     /** Package-visible so the test can assert on cache identity without a real network call. */
     AnthropicChatModel resolveForTest() {
-        return resolve();
+        return resolve(secrets.getAnthropicKey());
     }
 
-    private synchronized AnthropicChatModel resolve() {
-        String currentKey = secrets.getAnthropicKey();
-        if (currentKey == null || currentKey.isBlank()) {
-            throw new ClaudeNotConfiguredException(
-                    "Claude is not configured — add an Anthropic API key in Settings to enable this.");
+    private static ChatResponse mockResponse(ChatRequest chatRequest) {
+        String combinedText = chatRequest.messages().stream()
+                .map(DynamicAnthropicChatModel::extractText)
+                .collect(Collectors.joining("\n"));
+        return ChatResponse.builder()
+                .aiMessage(new AiMessage(MockAiResponses.forPrompt(combinedText)))
+                .build();
+    }
+
+    private static String extractText(ChatMessage message) {
+        if (message instanceof SystemMessage systemMessage) {
+            return systemMessage.text();
         }
+        if (message instanceof UserMessage userMessage) {
+            return userMessage.singleText();
+        }
+        return message.toString();
+    }
+
+    private synchronized AnthropicChatModel resolve(String currentKey) {
         if (!currentKey.equals(cachedKey)) {
             cachedModel = build(currentKey);
             cachedKey = currentKey;

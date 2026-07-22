@@ -129,20 +129,6 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void claudeNotConfiguredMapsTo503WithConsistentSchema() {
-        ProblemDetail problem = handler.handleClaudeNotConfigured(
-                new ClaudeNotConfiguredException("Claude is not configured"));
-        assertConsistentSchema(problem, HttpStatus.SERVICE_UNAVAILABLE);
-    }
-
-    @Test
-    void embeddingsNotConfiguredMapsTo503WithConsistentSchema() {
-        ProblemDetail problem = handler.handleEmbeddingsNotConfigured(
-                new EmbeddingsNotConfiguredException("Embeddings are not configured"));
-        assertConsistentSchema(problem, HttpStatus.SERVICE_UNAVAILABLE);
-    }
-
-    @Test
     void apiKeyValidationFailureMapsTo422WithConsistentSchema() {
         ProblemDetail problem = handler.handleApiKeyValidation(
                 new ApiKeyValidationException("Anthropic rejected this key"));

@@ -24,6 +24,7 @@ import com.studybuddy.document.repository.ChunkSearchResult;
 import com.studybuddy.document.repository.CourseChunkSearchRepository;
 import com.studybuddy.observability.StudyBuddyMetrics;
 import com.studybuddy.progress.ProgressService;
+import com.studybuddy.settings.RuntimeSecretsService;
 import com.studybuddy.quiz.dto.QuizAnswerResult;
 import com.studybuddy.quiz.dto.QuizAnswerSubmission;
 import com.studybuddy.quiz.dto.QuizGenerateRequest;
@@ -67,6 +68,7 @@ public class QuizService {
     private final ProgressService progressService;
     private final RagProperties ragProperties;
     private final StudyBuddyMetrics metrics;
+    private final RuntimeSecretsService secrets;
 
     public QuizService(
             EmbeddingModel embeddingModel,
@@ -76,7 +78,8 @@ public class QuizService {
             QuizAttemptRepository quizAttemptRepository,
             ProgressService progressService,
             RagProperties ragProperties,
-            StudyBuddyMetrics metrics) {
+            StudyBuddyMetrics metrics,
+            RuntimeSecretsService secrets) {
         this.embeddingModel = embeddingModel;
         this.searchRepository = searchRepository;
         this.quizGenerator = quizGenerator;
@@ -85,6 +88,7 @@ public class QuizService {
         this.progressService = progressService;
         this.ragProperties = ragProperties;
         this.metrics = metrics;
+        this.secrets = secrets;
     }
 
     public QuizGenerateResponse generate(QuizGenerateRequest request) {
@@ -183,9 +187,14 @@ public class QuizService {
     private List<ChunkSearchResult> timedSearch(float[] queryEmbedding, String topic) {
         long searchStartNanos = System.nanoTime();
         List<ChunkSearchResult> results = searchRepository.search(
-                queryEmbedding, topic, ragProperties.maxResults(), ragProperties.minScore());
+                queryEmbedding, topic, ragProperties.maxResults(), effectiveMinScore());
         metrics.recordRetrievalLatency(FEATURE, Duration.ofNanos(System.nanoTime() - searchStartNanos));
         return results;
+    }
+
+    /** See {@code TutorChatService.effectiveMinScore()} — same Mock Mode rationale. */
+    private double effectiveMinScore() {
+        return StringUtils.hasText(secrets.getOpenAiKey()) ? ragProperties.minScore() : 0.0;
     }
 
     private List<GeneratedQuizQuestion> generateQuestions(String prompt) {

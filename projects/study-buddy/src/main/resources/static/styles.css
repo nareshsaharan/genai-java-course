@@ -13,6 +13,8 @@
   --color-error-text: #DC2626;
   --color-warn-bg: #FFF7ED;
   --color-warn-text: #C2410C;
+  --color-info-bg: #EFF6FF;
+  --color-info-text: #1D4ED8;
   --radius: 10px;
   --shadow: 0 1px 3px rgba(99, 102, 241, 0.08), 0 1px 2px rgba(99, 102, 241, 0.06);
   --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.35);
@@ -33,6 +35,8 @@
   --color-error-text: #FCA5A5;
   --color-warn-bg: #3A2A06;
   --color-warn-text: #F59E0B;
+  --color-info-bg: #0C2A4A;
+  --color-info-text: #7DD3FC;
   --radius: 10px;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
   --focus-ring: 0 0 0 3px rgba(14, 165, 233, 0.4);
@@ -349,6 +353,11 @@ button.secondary {
 .status-warn {
   background: var(--color-warn-bg);
   color: var(--color-warn-text);
+}
+
+.status-info {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
 }
 
 .loading-region {

@@ -103,8 +103,8 @@
     <!-- ============ 2. RAG Tutor ============ -->
     <section class="card" id="tab-panel-tutor" aria-labelledby="tutor-heading" hidden>
       <h2 id="tutor-heading">Ask your tutor</h2>
-      <div id="tutor-unconfigured-banner" class="status-region status-warn" role="alert" hidden>
-        Add your Claude API key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab to use this.
+      <div id="tutor-unconfigured-banner" class="status-region status-info" role="status" hidden>
+        Demo Mode: no Claude API key is configured, so answers are canned examples, not real AI. Add your key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab for real answers.
       </div>
       <p class="section-hint">Answers are grounded strictly in your uploaded course notes.</p>
 
@@ -117,8 +117,8 @@
 
         <!-- ============ Optional voice input ============ -->
         <div class="voice-input" aria-live="polite">
-          <div id="voice-unconfigured-banner" class="status-region status-warn" role="alert" hidden>
-            Add your OpenAI API key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab to use voice input.
+          <div id="voice-unconfigured-banner" class="status-region status-info" role="status" hidden>
+            Demo Mode: no OpenAI API key is configured, so voice input returns a canned mock transcript. Add your key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab for real transcription.
           </div>
           <button type="button" id="voice-record-button" class="secondary" aria-pressed="false">
             <span aria-hidden="true">&#127908;</span> Record voice question
@@ -177,8 +177,8 @@
     <!-- ============ 3. Flashcard generator ============ -->
     <section class="card" id="tab-panel-flashcard" aria-labelledby="flashcard-heading" hidden>
       <h2 id="flashcard-heading">Generate flashcards</h2>
-      <div id="flashcard-unconfigured-banner" class="status-region status-warn" role="alert" hidden>
-        Add your Claude API key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab to use this.
+      <div id="flashcard-unconfigured-banner" class="status-region status-info" role="status" hidden>
+        Demo Mode: no Claude API key is configured, so these are example flashcards, not generated from your document. Add your key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab for real ones.
       </div>
       <p class="section-hint">Flashcards are generated only from topics covered in your uploaded notes.</p>
 
@@ -241,8 +241,8 @@
     <!-- ============ 4. Quiz ============ -->
     <section class="card" id="tab-panel-quiz" aria-labelledby="quiz-heading" hidden>
       <h2 id="quiz-heading">Take a quiz</h2>
-      <div id="quiz-unconfigured-banner" class="status-region status-warn" role="alert" hidden>
-        Add your Claude API key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab to use this.
+      <div id="quiz-unconfigured-banner" class="status-region status-info" role="status" hidden>
+        Demo Mode: no Claude API key is configured, so this is an example quiz, not generated from your document. Add your key in the <button type="button" class="link-button" data-goto-tab="settings">Settings</button> tab for a real one.
       </div>
       <p class="section-hint">Questions are grounded in your uploaded course notes. Correct answers are revealed only after you submit.</p>
 

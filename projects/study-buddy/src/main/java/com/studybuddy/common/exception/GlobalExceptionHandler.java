@@ -121,21 +121,6 @@ public class GlobalExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, ex.getMessage());
     }
 
-    @ExceptionHandler(AudioServiceNotConfiguredException.class)
-    public ProblemDetail handleAudioServiceNotConfigured(AudioServiceNotConfiguredException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
-    }
-
-    @ExceptionHandler(ClaudeNotConfiguredException.class)
-    public ProblemDetail handleClaudeNotConfigured(ClaudeNotConfiguredException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
-    }
-
-    @ExceptionHandler(EmbeddingsNotConfiguredException.class)
-    public ProblemDetail handleEmbeddingsNotConfigured(EmbeddingsNotConfiguredException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
-    }
-
     @ExceptionHandler(ApiKeyValidationException.class)
     public ProblemDetail handleApiKeyValidation(ApiKeyValidationException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());

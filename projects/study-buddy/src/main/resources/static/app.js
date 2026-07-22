@@ -1020,10 +1020,7 @@ function initTabNav() {
  * ------------------------------------------------------------------- */
 
 function describeStatus(status) {
-  if (!status.configured) {
-    return 'Not configured';
-  }
-  return status.source === 'env' ? 'Using environment default' : 'Saved (custom)';
+  return status.source === 'mock' ? 'Demo mode (mock)' : 'Saved (custom)';
 }
 
 function initKeyPanel(provider) {
@@ -1090,32 +1087,20 @@ function initKeyPanel(provider) {
 }
 
 function applyGating(status) {
-  const claudeConfigured = status.anthropic.configured;
-  const openAiConfigured = status.openai.configured;
+  // Every feature stays usable even with no key: Mock Mode serves canned
+  // responses instead of a 503. These banners are purely informational —
+  // they tell the visitor *why* the output looks canned, they don't block
+  // anything.
+  const claudeIsMock = status.anthropic.source === 'mock';
+  const openAiIsMock = status.openai.source === 'mock';
 
-  const tutorBanner = document.getElementById('tutor-unconfigured-banner');
-  const tutorButton = document.getElementById('tutor-button');
-  tutorBanner.hidden = claudeConfigured;
-  tutorButton.disabled = !claudeConfigured;
+  document.getElementById('tutor-unconfigured-banner').hidden = !claudeIsMock;
+  document.getElementById('flashcard-unconfigured-banner').hidden = !claudeIsMock;
+  document.getElementById('quiz-unconfigured-banner').hidden = !claudeIsMock;
+  document.getElementById('voice-unconfigured-banner').hidden = !openAiIsMock;
 
-  const flashcardBanner = document.getElementById('flashcard-unconfigured-banner');
-  const flashcardButton = document.getElementById('flashcard-button');
-  flashcardBanner.hidden = claudeConfigured;
-  flashcardButton.disabled = !claudeConfigured;
-
-  const quizBanner = document.getElementById('quiz-unconfigured-banner');
-  const quizGenerateButton = document.getElementById('quiz-generate-button');
-  quizBanner.hidden = claudeConfigured;
-  quizGenerateButton.disabled = !claudeConfigured;
-
-  const voiceBanner = document.getElementById('voice-unconfigured-banner');
   const voiceRecordButton = document.getElementById('voice-record-button');
-  voiceBanner.hidden = openAiConfigured;
-  if (!openAiConfigured) {
-    voiceRecordButton.disabled = true;
-  } else if (typeof window.MediaRecorder !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
-    voiceRecordButton.disabled = false;
-  }
+  voiceRecordButton.disabled = !(typeof window.MediaRecorder !== 'undefined' && navigator.mediaDevices?.getUserMedia);
 }
 
 let refreshGating = async () => {};

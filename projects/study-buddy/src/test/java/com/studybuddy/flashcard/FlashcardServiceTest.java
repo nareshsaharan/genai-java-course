@@ -29,6 +29,7 @@ import com.studybuddy.flashcard.dto.FlashcardGenerateResponse;
 import com.studybuddy.flashcard.repository.FlashcardRecord;
 import com.studybuddy.flashcard.repository.FlashcardRepository;
 import com.studybuddy.observability.StudyBuddyMetrics;
+import com.studybuddy.settings.RuntimeSecretsService;
 
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.exception.LangChain4jException;
@@ -46,9 +47,14 @@ class FlashcardServiceTest {
     private final RagProperties ragProperties = new RagProperties(400, 40, 5, 0.6);
     private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     private final StudyBuddyMetrics metrics = new StudyBuddyMetrics(meterRegistry);
+    private final RuntimeSecretsService secrets = mock(RuntimeSecretsService.class);
 
     private final FlashcardService service = new FlashcardService(
-            embeddingModel, searchRepository, flashcardGenerator, flashcardRepository, ragProperties, metrics);
+            embeddingModel, searchRepository, flashcardGenerator, flashcardRepository, ragProperties, metrics, secrets);
+
+    {
+        when(secrets.getOpenAiKey()).thenReturn("sk-test-key-configured");
+    }
 
     private ChunkSearchResult someChunk() {
         return new ChunkSearchResult(UUID.randomUUID(), "RAG combines retrieval with generation.", "rag-notes.pdf", 3, 0.9);
@@ -181,6 +187,18 @@ class FlashcardServiceTest {
         verify(flashcardRepository, never()).saveAll(any());
         assertThat(meterRegistry.get("studybuddy.no_context.count").tag("feature", "flashcard").counter().count())
                 .isEqualTo(1.0);
+    }
+
+    @Test
+    void mockModeDropsTheSimilarityFloorToZeroWhenNoOpenAiKeyIsConfigured() {
+        when(secrets.getOpenAiKey()).thenReturn(null);
+        when(embeddingModel.embed(anyString())).thenReturn(Response.from(Embedding.from(new float[]{0.1f, 0.2f})));
+        when(searchRepository.search(any(), anyString(), anyInt(), anyDouble())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.generate(new FlashcardGenerateRequest("Quantum Computing", 5, Difficulty.MEDIUM)))
+                .isInstanceOf(NoRelevantContextException.class);
+
+        verify(searchRepository).search(any(), anyString(), anyInt(), org.mockito.ArgumentMatchers.eq(0.0));
     }
 
     @Test

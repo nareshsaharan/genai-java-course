@@ -25,6 +25,7 @@ import com.studybuddy.config.properties.RagProperties;
 import com.studybuddy.document.repository.ChunkSearchResult;
 import com.studybuddy.document.repository.CourseChunkSearchRepository;
 import com.studybuddy.observability.StudyBuddyMetrics;
+import com.studybuddy.settings.RuntimeSecretsService;
 import com.studybuddy.tutor.dto.TutorChatRequest;
 import com.studybuddy.tutor.dto.TutorChatResponse;
 
@@ -43,9 +44,14 @@ class TutorChatServiceTest {
     private final RagProperties ragProperties = new RagProperties(400, 40, 5, 0.6);
     private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     private final StudyBuddyMetrics metrics = new StudyBuddyMetrics(meterRegistry);
+    private final RuntimeSecretsService secrets = mock(RuntimeSecretsService.class);
 
     private final TutorChatService service =
-            new TutorChatService(embeddingModel, searchRepository, tutorAssistant, ragProperties, metrics);
+            new TutorChatService(embeddingModel, searchRepository, tutorAssistant, ragProperties, metrics, secrets);
+
+    {
+        when(secrets.getOpenAiKey()).thenReturn("sk-test-key-configured");
+    }
 
     private void stubEmbedding() {
         when(embeddingModel.embed(anyString()))
@@ -146,6 +152,17 @@ class TutorChatServiceTest {
         service.chat(new TutorChatRequest("Explain dependency injection", null));
 
         verify(searchRepository).search(any(), isNull(), eq(5), eq(0.6));
+    }
+
+    @Test
+    void mockModeDropsTheSimilarityFloorToZeroWhenNoOpenAiKeyIsConfigured() {
+        when(secrets.getOpenAiKey()).thenReturn(null);
+        stubEmbedding();
+        when(searchRepository.search(any(), any(), anyInt(), anyDouble())).thenReturn(List.of());
+
+        service.chat(new TutorChatRequest("Explain dependency injection", null));
+
+        verify(searchRepository).search(any(), any(), eq(5), eq(0.0));
     }
 
     @Test

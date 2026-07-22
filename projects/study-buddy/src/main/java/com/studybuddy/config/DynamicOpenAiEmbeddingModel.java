@@ -2,10 +2,10 @@ package com.studybuddy.config;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Random;
 
 import org.springframework.stereotype.Component;
 
-import com.studybuddy.common.exception.EmbeddingsNotConfiguredException;
 import com.studybuddy.settings.RuntimeSecretsService;
 
 import dev.langchain4j.data.embedding.Embedding;
@@ -31,6 +31,13 @@ import dev.langchain4j.model.output.Response;
  * Any course notes ingested under the old model must be re-uploaded — the
  * vector *values* from a different model are not comparable even at the same
  * dimension.
+ *
+ * <p>When no key is configured for the session (Mock Mode — the default for
+ * every new session, see {@link RuntimeSecretsService}), no real API call is
+ * made: a deterministic pseudo-embedding (hashed from the segment's own text)
+ * is returned instead, so document upload keeps working end-to-end with zero
+ * API keys — the resulting vectors aren't semantically meaningful, but the
+ * ingestion/storage/retrieval pipeline itself stays fully exercised.
  */
 @Component
 public class DynamicOpenAiEmbeddingModel implements EmbeddingModel {
@@ -51,7 +58,11 @@ public class DynamicOpenAiEmbeddingModel implements EmbeddingModel {
 
     @Override
     public Response<List<Embedding>> embedAll(List<TextSegment> textSegments) {
-        return resolve().embedAll(textSegments);
+        String currentKey = secrets.getOpenAiKey();
+        if (currentKey == null || currentKey.isBlank()) {
+            return mockEmbedAll(textSegments);
+        }
+        return resolve(currentKey).embedAll(textSegments);
     }
 
     @Override
@@ -61,15 +72,27 @@ public class DynamicOpenAiEmbeddingModel implements EmbeddingModel {
 
     /** Package-visible so the test can assert on cache identity without a real network call. */
     OpenAiEmbeddingModel resolveForTest() {
-        return resolve();
+        return resolve(secrets.getOpenAiKey());
     }
 
-    private synchronized OpenAiEmbeddingModel resolve() {
-        String currentKey = secrets.getOpenAiKey();
-        if (currentKey == null || currentKey.isBlank()) {
-            throw new EmbeddingsNotConfiguredException(
-                    "Embeddings are not configured — add an OpenAI API key in Settings to enable this.");
+    private static Response<List<Embedding>> mockEmbedAll(List<TextSegment> textSegments) {
+        List<Embedding> embeddings = textSegments.stream()
+                .map(segment -> Embedding.from(deterministicVector(segment.text())))
+                .toList();
+        return Response.from(embeddings);
+    }
+
+    /** Same text always hashes to the same vector, so re-uploading the same document is idempotent even in Mock Mode. */
+    private static float[] deterministicVector(String text) {
+        Random random = new Random(text.hashCode());
+        float[] vector = new float[DIMENSIONS];
+        for (int i = 0; i < DIMENSIONS; i++) {
+            vector[i] = (random.nextFloat() * 2) - 1;
         }
+        return vector;
+    }
+
+    private synchronized OpenAiEmbeddingModel resolve(String currentKey) {
         if (!currentKey.equals(cachedKey)) {
             cachedModel = build(currentKey);
             cachedKey = currentKey;
