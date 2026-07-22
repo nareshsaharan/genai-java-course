@@ -28,7 +28,7 @@ class EmbeddingDimensionTest {
         when(secrets.getEmbeddingProvider()).thenReturn(EmbeddingProvider.OPENAI);
         when(secrets.getActiveEmbeddingKey()).thenReturn("sk-test-key");
         EmbeddingModel embeddingModel = new DynamicEmbeddingModel(
-                secrets, new GeminiProperties("gemini-2.0-flash", "gemini-embedding-001", 30));
+                secrets, new GeminiProperties("gemini-flash-latest", "gemini-embedding-001", 30));
 
         assertThat(embeddingModel.dimension()).isEqualTo(384);
     }

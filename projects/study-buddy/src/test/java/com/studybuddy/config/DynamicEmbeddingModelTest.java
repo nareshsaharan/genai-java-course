@@ -19,7 +19,7 @@ import dev.langchain4j.model.output.Response;
 class DynamicEmbeddingModelTest {
 
     private static GeminiProperties geminiProperties() {
-        return new GeminiProperties("gemini-2.0-flash", "gemini-embedding-001", 30);
+        return new GeminiProperties("gemini-flash-latest", "gemini-embedding-001", 30);
     }
 
     private static DynamicEmbeddingModel model(RuntimeSecretsService secrets) {

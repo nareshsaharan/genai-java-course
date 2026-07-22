@@ -92,8 +92,12 @@ studybuddy:
 
   # Free alternative to Claude (chat) and OpenAI (embeddings) — one Gemini
   # key powers both, selected independently per session in Settings.
+  # chat-model uses the "-latest" rolling alias (not a pinned version like
+  # gemini-2.0-flash) so it always tracks whichever Flash model is currently
+  # on Google's free tier — a pinned version can be deprecated/quota-limited
+  # out from under you as Google ships newer Flash generations.
   gemini:
-    chat-model: ${GEMINI_CHAT_MODEL:gemini-2.0-flash}
+    chat-model: ${GEMINI_CHAT_MODEL:gemini-flash-latest}
     embedding-model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
     timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:30}
 
