@@ -72,8 +72,9 @@ curl -X DELETE http://localhost:8080/api/settings/keys/anthropic
 ### `POST /api/documents/upload`
 
 Multipart form upload. Ingests a course-notes file: extracts text, dedupes by
-content hash, chunks (~400 tokens / 40 overlap by default), embeds locally
-(all-MiniLM-L6-v2, 384-dim), stores in `course_chunks`.
+content hash, chunks (~400 tokens / 40 overlap by default), embeds via OpenAI
+(`text-embedding-3-small`, truncated to 384 dims — requires `OPENAI_API_KEY`),
+stores in `course_chunks`.
 
 | Part | Type | Required |
 |---|---|---|
@@ -103,6 +104,7 @@ the original document's id/chunkCount, HTTP 201, no new rows written).
 | 415 | Unsupported file type, or missing/wrong multipart Content-Type |
 | 422 | Empty file / no extractable text |
 | 413 | File exceeds `spring.servlet.multipart.max-file-size` (25MB) |
+| 503 | `OPENAI_API_KEY` not configured (embeddings are required for ingestion) |
 
 ---
 
@@ -152,6 +154,7 @@ information" message, never a guess).
 | 400 | blank `question` |
 | 502 | Claude call failed for a reason other than timeout |
 | 504 | Claude call timed out |
+| 503 | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` not configured (embeddings also require OpenAI) |
 
 ---
 
@@ -198,6 +201,7 @@ not an error.
 |---|---|
 | 404 | No course content found for `topic` (nothing relevant ingested yet) |
 | 502 / 504 | Claude call failed / timed out |
+| 503 | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` not configured |
 
 ---
 
@@ -228,6 +232,12 @@ curl -X POST http://localhost:8080/api/quizzes/generate \
   ]
 }
 ```
+
+| Status | When |
+|---|---|
+| 404 | No course content found for `topic` (nothing relevant ingested yet) |
+| 502 / 504 | Claude call failed / timed out |
+| 503 | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` not configured |
 
 ### `POST /api/quizzes/{quizId}/submit`
 

@@ -28,13 +28,11 @@ COPY --from=build /build/target/study-buddy-*.jar /app/app.jar
 
 USER studybuddy
 
-# The ONNX embedding model does a restricted System::load call at startup
-# (see onnxruntime warning in logs) — enabling native access removes the
-# JVM warning without changing behavior.
+# Override with e.g. -Xmx flags on memory-constrained hosts (see README).
 ENV JAVA_OPTS=""
 EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=45s --retries=5 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
 
-ENTRYPOINT ["sh", "-c", "exec java --enable-native-access=ALL-UNNAMED $JAVA_OPTS -jar /app/app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

@@ -18,6 +18,7 @@ capstone around LangChain4j, Claude (Anthropic), and pgvector.
 - [MCP server](#mcp-server)
 - [Voice input](#voice-input)
 - [Testing](#testing)
+- [Migrating from the local embedding model](#migrating-from-the-local-embedding-model)
 - [Security notes](#security-notes)
 - [Further docs](#further-docs)
 
@@ -37,7 +38,7 @@ flowchart TB
         REST["REST controllers\n/api/documents /api/tutor /api/flashcards\n/api/quizzes /api/progress /api/audio"]
         MCP["MCP endpoint\nPOST /mcp (profile=mcp)\nMcpApiKeyFilter"]
         Services["Service layer\nDocumentIngestionService, TutorChatService,\nFlashcardService, QuizService, ProgressService,\nAudioTranscriptionService"]
-        Embed["EmbeddingModel\nAllMiniLmL6V2 (384-dim, in-process ONNX)"]
+        Embed["EmbeddingModel\nOpenAI text-embedding-3-small (384-dim)"]
         Chat["ChatModel\nAnthropicChatModel (Claude)"]
         Whisper["WhisperClient\nOpenAI Whisper REST (optional)"]
         Repos["JdbcTemplate repositories\ncourse_chunks, documents, flashcards,\nquizzes, quiz_attempts, topic_progress"]
@@ -97,9 +98,9 @@ sequenceDiagram
 | Concern | Choice |
 |---|---|
 | Language / runtime | Java 21, Spring Boot 3.5.16 |
-| AI orchestration | LangChain4j 1.17.2 (`langchain4j-anthropic`, `langchain4j-embeddings-all-minilm-l6-v2`, `langchain4j-pgvector`) |
+| AI orchestration | LangChain4j 1.17.2 (`langchain4j-anthropic`, `langchain4j-open-ai`, `langchain4j-pgvector`) |
 | Chat model | Claude via Anthropic API (`claude-sonnet-5` by default) |
-| Embeddings | all-MiniLM-L6-v2, 384-dim, local ONNX — no network call, no API key |
+| Embeddings | OpenAI `text-embedding-3-small`, truncated to 384 dims via the API's own `dimensions` parameter — requires `OPENAI_API_KEY` (see [Settings UI](#settings-ui-runtime-configurable-api-keys)). Originally a local in-process ONNX model (all-MiniLM-L6-v2, no API key needed) — switched after that model's native memory footprint didn't fit in a 512MB container on free-tier PaaS hosts |
 | Vector store | PostgreSQL 16/17 + pgvector, hand-rolled `JdbcTemplate` repositories (no JPA, no ORM) |
 | Migrations | Flyway |
 | MCP | Spring AI 1.1.7 MCP server starter (Streamable HTTP), separate profile |
@@ -220,7 +221,8 @@ Backend pieces: `RuntimeSecretsService` (source of truth + persistence), `Anthro
 ### Document ingestion — `POST /api/documents/upload`
 PDF/TXT/Markdown → extract text → SHA-256 content-hash dedupe → chunk
 (~400 tokens / 40 overlap, `DocumentSplitters.recursive`) → embed
-(all-MiniLM-L6-v2) → store in `course_chunks` (`VECTOR(384)`). Uploaded
+(OpenAI `text-embedding-3-small`, 384 dims) → store in `course_chunks`
+(`VECTOR(384)`). Uploaded
 content is only ever treated as inert data — never executed or interpreted
 as instructions.
 
@@ -413,6 +415,15 @@ defect. See [MANUAL_TESTING.md](MANUAL_TESTING.md) for a full manual
 UI+curl test pass with sample data.
 
 ---
+
+## Migrating from the local embedding model
+
+Course notes ingested before the OpenAI embeddings switch have vectors from a
+*different model* (all-MiniLM-L6-v2) than everything ingested afterward
+(OpenAI `text-embedding-3-small`) — even though both are 384-dim, the vector
+*values* aren't comparable across models. Re-upload any previously-ingested
+documents (`POST /api/documents/upload`) after upgrading, or retrieval quality
+for old content will silently degrade rather than error loudly.
 
 ## Security notes
 

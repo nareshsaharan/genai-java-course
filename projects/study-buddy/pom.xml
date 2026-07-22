@@ -122,12 +122,17 @@
       <artifactId>langchain4j-anthropic</artifactId>
     </dependency>
 
-    <!-- Local embedding model (all-MiniLM-L6-v2, 384 dimensions), runs
-         fully in-process via ONNX runtime bundled in the jar — no API key,
-         no network call for embeddings. -->
+    <!-- OpenAI embeddings (text-embedding-3-small, truncated to 384 dims via
+         the API's own `dimensions` parameter — keeps the existing VECTOR(384)
+         schema unchanged). Originally this project used a local in-process
+         ONNX model (all-MiniLM-L6-v2) specifically to avoid any embedding API
+         key/cost — switched after discovering that model's native (off-heap)
+         memory footprint while loading doesn't fit in a 512MB container on
+         free-tier hosts (Render), a constraint that didn't exist when the
+         local-model decision was first made. -->
     <dependency>
       <groupId>dev.langchain4j</groupId>
-      <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>
+      <artifactId>langchain4j-open-ai</artifactId>
     </dependency>
 
     <!-- pgvector-backed EmbeddingStore. Also pulls in com.pgvector:pgvector,
