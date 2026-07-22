@@ -12,4 +12,8 @@ public interface TutorAssistant {
 
     @SystemMessage(TutorPrompts.SYSTEM_PROMPT)
     String answer(@UserMessage String prompt);
+
+    /** Used when retrieval finds no relevant course-note chunks — answers from general knowledge instead. */
+    @SystemMessage(TutorPrompts.GENERAL_KNOWLEDGE_SYSTEM_PROMPT)
+    String answerFromGeneralKnowledge(@UserMessage String question);
 }

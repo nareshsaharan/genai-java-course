@@ -6,6 +6,11 @@ public enum Confidence {
     MEDIUM,
     LOW,
 
-    /** No retrieved chunk crossed the minimum similarity threshold; Claude was not called. */
+    /**
+     * No retrieved chunk crossed the minimum similarity threshold. The chat
+     * provider is still called, but answers from its own general knowledge
+     * instead of the student's course notes — see
+     * {@code TutorAssistant#answerFromGeneralKnowledge}.
+     */
     NO_RELEVANT_CONTEXT
 }

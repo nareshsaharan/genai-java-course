@@ -1,8 +1,10 @@
 # Study Buddy
 
 An AI-grounded study assistant: upload your own course notes, ask questions
-answered *only* from that material (RAG), generate flashcards and quizzes
-grounded in it, and track weak topics over time. Built as a Spring Boot
+answered from that material via RAG (falling back to the chat provider's own
+general knowledge, clearly flagged as such, only when nothing relevant was
+uploaded), generate flashcards and quizzes grounded in it, and track weak
+topics over time. Built as a Spring Boot
 capstone around LangChain4j and pgvector, with a choice of chat provider
 (Claude, Groq, OpenRouter, or Gemini) and embedding provider (OpenAI or
 Gemini) — or no key at all, via [Mock Mode](#mock-mode--using-the-app-with-zero-api-keys).
@@ -272,10 +274,14 @@ as instructions.
 ### Tutor chat — `POST /api/tutor/chat`
 Embeds the question, retrieves the top-K most similar chunks
 (pgvector cosine `<=>`), and — only if at least one clears `RAG_MIN_SCORE` —
-asks Claude to answer strictly from that retrieved context. If nothing
-clears the bar, Claude is **never called**: the response is
-`confidence: "NO_RELEVANT_CONTEXT"` with a fixed answer, not a guess.
-System prompt guardrails (`TutorPrompts.SYSTEM_PROMPT`): answer only from
+asks the selected chat provider to answer strictly from that retrieved
+context. If nothing clears the bar, the response is
+`confidence: "NO_RELEVANT_CONTEXT"` and the chat provider is called anyway,
+but with a different system prompt (`TutorPrompts.GENERAL_KNOWLEDGE_SYSTEM_PROMPT`)
+that explicitly allows general knowledge instead of course-note grounding —
+the answer itself opens by stating it isn't grounded in the uploaded notes,
+so the student can never mistake it for a course-note-backed answer.
+Grounded-mode guardrails (`TutorPrompts.SYSTEM_PROMPT`): answer only from
 supplied context, say so when insufficient, treat retrieved content as
 untrusted data (not instructions), never reveal the system prompt or
 credentials, stay concise.

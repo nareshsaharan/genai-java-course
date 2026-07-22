@@ -162,7 +162,9 @@ the original document's id/chunkCount, HTTP 201, no new rows written).
 
 ### `POST /api/tutor/chat`
 
-Retrieval-augmented Q&A grounded strictly in ingested course notes.
+Retrieval-augmented Q&A grounded in ingested course notes when relevant
+content is found; otherwise falls back to the chat provider's own general
+knowledge, clearly flagged as such (see `confidence` below).
 
 ```json
 {
@@ -195,9 +197,11 @@ curl -X POST http://localhost:8080/api/tutor/chat \
 }
 ```
 `confidence` is `HIGH` / `MEDIUM` / `LOW` (based on top retrieved similarity
-score) or `NO_RELEVANT_CONTEXT` (no chunk cleared `RAG_MIN_SCORE` — the chat provider was
-never called, `sources` is empty, and the answer is a fixed "not enough
-information" message, never a guess). No API keys required: while
+score, answer grounded strictly in the retrieved chunks) or
+`NO_RELEVANT_CONTEXT` (no chunk cleared `RAG_MIN_SCORE` — `sources` is empty,
+and the chat provider is still called, but answers from its own general
+knowledge instead, with the answer text itself stating up front that it
+isn't grounded in the uploaded notes). No API keys required: while
 unconfigured, both retrieval and the answer itself run in Mock Mode (see
 [README.md](README.md#mock-mode--using-the-app-with-zero-api-keys)) instead of
 returning a 503.

@@ -3,6 +3,7 @@ package com.studybuddy.tutor;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -27,8 +28,9 @@ import dev.langchain4j.model.embedding.EmbeddingModel;
 
 /**
  * Orchestrates tutor chat: embed the question -> retrieve similar course-note
- * chunks -> (if none clear the similarity bar) skip Claude entirely -> else
- * ask {@link TutorAssistant}, grounded only in the retrieved context.
+ * chunks -> if none clear the similarity bar, ask {@link TutorAssistant} to
+ * answer from its own general knowledge instead (clearly flagged as
+ * ungrounded) -> otherwise ask it grounded only in the retrieved context.
  */
 @Service
 public class TutorChatService {
@@ -36,8 +38,6 @@ public class TutorChatService {
     private static final Logger log = LoggerFactory.getLogger(TutorChatService.class);
     private static final String FEATURE = "tutor";
     private static final int SNIPPET_MAX_LENGTH = 240;
-    private static final String NO_CONTEXT_ANSWER =
-            "I don't have enough information in the ingested course notes to answer this question.";
 
     private final EmbeddingModel embeddingModel;
     private final CourseChunkSearchRepository searchRepository;
@@ -69,8 +69,9 @@ public class TutorChatService {
 
         if (results.isEmpty()) {
             metrics.incrementNoContext(FEATURE);
+            String answer = generateGeneralKnowledgeAnswer(request.question());
             logCompletion(startNanos, List.of());
-            return new TutorChatResponse(NO_CONTEXT_ANSWER, Confidence.NO_RELEVANT_CONTEXT, List.of());
+            return new TutorChatResponse(answer, Confidence.NO_RELEVANT_CONTEXT, List.of());
         }
 
         String prompt = buildPrompt(request.question(), results);
@@ -107,9 +108,17 @@ public class TutorChatService {
     }
 
     private String generateAnswer(String prompt) {
+        return callModel(() -> tutorAssistant.answer(prompt));
+    }
+
+    private String generateGeneralKnowledgeAnswer(String question) {
+        return callModel(() -> tutorAssistant.answerFromGeneralKnowledge(question));
+    }
+
+    private String callModel(Supplier<String> call) {
         long claudeStartNanos = System.nanoTime();
         try {
-            String answer = tutorAssistant.answer(prompt);
+            String answer = call.get();
             metrics.recordClaudeLatency(FEATURE, Duration.ofNanos(System.nanoTime() - claudeStartNanos));
             return answer;
         } catch (TimeoutException e) {

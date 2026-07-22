@@ -130,18 +130,34 @@ class TutorChatServiceTest {
     }
 
     @Test
-    void noRelevantContextSkipsClaudeCall() {
+    void noRelevantContextFallsBackToGeneralKnowledgeAnswer() {
         stubEmbedding();
         when(searchRepository.search(any(), any(), anyInt(), anyDouble())).thenReturn(List.of());
+        when(tutorAssistant.answerFromGeneralKnowledge("Explain dependency injection"))
+                .thenReturn("Not grounded in your notes, but here's a general answer: ...");
 
         TutorChatResponse response = service.chat(
                 new TutorChatRequest("Explain dependency injection", "Spring Boot"));
 
         assertThat(response.confidence()).isEqualTo(Confidence.NO_RELEVANT_CONTEXT);
         assertThat(response.sources()).isEmpty();
+        assertThat(response.answer()).isEqualTo("Not grounded in your notes, but here's a general answer: ...");
+        verify(tutorAssistant).answerFromGeneralKnowledge("Explain dependency injection");
         verify(tutorAssistant, never()).answer(any());
         assertThat(meterRegistry.get("studybuddy.no_context.count").tag("feature", "tutor").counter().count())
                 .isEqualTo(1.0);
+        assertThat(meterRegistry.get("studybuddy.claude.latency").tag("feature", "tutor").timer().count())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void generalKnowledgeModelTimeoutIsWrappedAsTutorAnswerTimeoutException() {
+        stubEmbedding();
+        when(searchRepository.search(any(), any(), anyInt(), anyDouble())).thenReturn(List.of());
+        when(tutorAssistant.answerFromGeneralKnowledge(any())).thenThrow(new TimeoutException("timed out"));
+
+        assertThatThrownBy(() -> service.chat(new TutorChatRequest("question", null)))
+                .isInstanceOf(TutorAnswerTimeoutException.class);
     }
 
     @Test
