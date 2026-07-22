@@ -175,9 +175,9 @@ For iterating on the code directly (no image rebuild per change):
 docker compose up -d postgres
 # (or a native Postgres 17 + pgvector install — see MANUAL_TESTING.md)
 
-# 2. Configure
+# 2. Configure (all API keys are optional — see Mock Mode below;
+#    .env only needs editing if you want to change a default model/timeout)
 cp .env.example .env
-# edit .env: set ANTHROPIC_API_KEY at minimum
 
 # 3. Run
 export $(grep -v '^#' .env | xargs)
@@ -185,7 +185,13 @@ mvn spring-boot:run
 ```
 
 Then open http://localhost:8080 for the UI, or see [API.md](API.md) for curl
-examples of every endpoint.
+examples of every endpoint. No API key needed to try it — every feature runs
+in [Mock Mode](#mock-mode--using-the-app-with-zero-api-keys) until you add one
+in the Settings tab. To try it with real, meaningful content instead of a
+one-line test file, upload
+[`sample-notes/java-spring-boot-oops-genai.md`](sample-notes/java-spring-boot-oops-genai.md)
+— course notes covering Java, OOP, Spring Boot, and GenAI/RAG fundamentals,
+good for exercising Tutor/Flashcards/Quiz with real questions.
 
 ---
 
