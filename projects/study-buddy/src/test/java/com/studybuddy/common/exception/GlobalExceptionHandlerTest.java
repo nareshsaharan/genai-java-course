@@ -15,9 +15,11 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Verifies that every exception this application throws maps to a
@@ -151,6 +153,17 @@ class GlobalExceptionHandlerTest {
     void unreadableMessageMapsTo400WithConsistentSchema() {
         ProblemDetail problem = handler.handleUnreadableMessage(new HttpMessageNotReadableException("bad json"));
         assertConsistentSchema(problem, HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void missingStaticResourceMapsTo404NotInternalServerError() {
+        // Real-world case: browsers auto-request /favicon.ico on every page load.
+        // Left unhandled, NoResourceFoundException fell through to the generic
+        // 500 handler and got logged as an ERROR-level "unhandled exception" for
+        // routine, expected browser behavior — this should be a quiet 404.
+        ProblemDetail problem = handler.handleNoResourceFound(
+                new NoResourceFoundException(HttpMethod.GET, "favicon.ico"));
+        assertConsistentSchema(problem, HttpStatus.NOT_FOUND);
     }
 
     @Test

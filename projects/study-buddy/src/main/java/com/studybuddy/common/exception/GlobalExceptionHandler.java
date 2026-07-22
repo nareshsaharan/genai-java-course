@@ -14,6 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Central mapping from exceptions to RFC 7807 ProblemDetail responses.
@@ -153,6 +154,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleUnreadableMessage(HttpMessageNotReadableException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Malformed request body");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResourceFound(NoResourceFoundException ex) {
+        // Routine — e.g. every browser auto-requests /favicon.ico. Left
+        // unhandled, this fell through to the generic 500 handler and got
+        // logged as an ERROR-level "unhandled exception" for completely
+        // expected behavior. No log.error here: a missing static asset isn't
+        // an application error.
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "No such resource: " + ex.getResourcePath());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
